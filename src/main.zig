@@ -27,7 +27,7 @@ export fn frame() void {
 
 export fn cleanup() void {
     game_engine.deinit();
-    // Shutdown graphics context for regular (non-hot-swap) mode
+    // Shutdown graphics context
     const sokol = @import("sokol");
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();
