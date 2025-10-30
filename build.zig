@@ -68,9 +68,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
 
-    hot_exe.root_module.addImport("sokol", sokol.module("sokol"));
-    hot_exe.root_module.addImport("cimgui", cimgui.module("cimgui"));
-    hot_exe.step.dependOn(shader);
+    // Hot executable only needs basic functionality - no graphics dependencies
 
     b.installArtifact(hot_exe);
 
