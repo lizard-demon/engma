@@ -124,9 +124,18 @@ BUILD SYSTEM
          - shdc: Shader compilation pipeline  
          - cimgui: Immediate mode GUI overlay
 
+     Build commands:
+         zig build              Build native executable
+         zig build run          Build and run native
+         zig build web          Build for web (WASM)
+
      Shader compilation:
          GLSL → {GLSL410, GLSL300ES, Metal, WGSL}
          Compile-time bytecode generation
+
+     Web deployment:
+         Output: zig-out/web/{fps.html, fps.js, fps.wasm}
+         Serve via any HTTP server
 
 EXAMPLES
      Basic voxel world with Quake physics:
