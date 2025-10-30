@@ -1,0 +1,59 @@
+./duel
+
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Debug files
+*.pdb
+*.dSYM/
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Generated shader files (keep source .glsl, ignore generated .zig)
+src/shader/*.glsl.zig
+
+# Dependencies cache
+deps/
+vendor/
+
+# Local configuration
+.env
+config.local.*
+
+# Profiling data
+*.prof
+callgrind.out.*
+perf.data*
+
+# Coverage reports
+coverage/
+*.gcov
+*.gcda
+*.gcno
