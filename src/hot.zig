@@ -8,41 +8,39 @@ const simgui = sokol.imgui;
 const libengine_path = "zig-out/lib/libengine.dylib";
 var libengine: ?std.DynLib = null;
 
-// Engine function pointers
-var engine_init: *const fn () void = undefined;
-var engine_destroy: *const fn () void = undefined;
-var engine_pre_reload: *const fn () *anyopaque = undefined;
-var engine_post_reload: *const fn (*anyopaque) void = undefined;
-var engine_tick: *const fn () void = undefined;
-var engine_draw: *const fn () void = undefined;
-var engine_event: *const fn (sokol.app.Event) void = undefined;
+// Plugin function pointers (standard Zig plugin interface)
+var plug_init: *const fn () void = undefined;
+var plug_deinit: *const fn () void = undefined;
+var plug_pre_reload: *const fn () *anyopaque = undefined;
+var plug_post_reload: *const fn (*anyopaque) void = undefined;
+var plug_update: *const fn () void = undefined;
+var plug_event: *const fn (sokol.app.Event) void = undefined;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var engine_loaded: bool = false;
+var plugin_loaded: bool = false;
 
-fn reload_engine() bool {
+fn reload_plugin() bool {
     if (libengine) |*lib| {
         lib.close();
         libengine = null;
-        engine_loaded = false;
+        plugin_loaded = false;
     }
 
     var dyn_lib = std.DynLib.open(libengine_path) catch {
-        std.log.err("Failed to open engine: {s}", .{libengine_path});
+        std.log.err("Failed to open plugin: {s}", .{libengine_path});
         return false;
     };
 
     libengine = dyn_lib;
 
-    engine_init = dyn_lib.lookup(@TypeOf(engine_init), "engine_init") orelse return false;
-    engine_destroy = dyn_lib.lookup(@TypeOf(engine_destroy), "engine_destroy") orelse return false;
-    engine_pre_reload = dyn_lib.lookup(@TypeOf(engine_pre_reload), "engine_pre_reload") orelse return false;
-    engine_post_reload = dyn_lib.lookup(@TypeOf(engine_post_reload), "engine_post_reload") orelse return false;
-    engine_tick = dyn_lib.lookup(@TypeOf(engine_tick), "engine_tick") orelse return false;
-    engine_draw = dyn_lib.lookup(@TypeOf(engine_draw), "engine_draw") orelse return false;
-    engine_event = dyn_lib.lookup(@TypeOf(engine_event), "engine_event") orelse return false;
+    plug_init = dyn_lib.lookup(@TypeOf(plug_init), "plug_init") orelse return false;
+    plug_deinit = dyn_lib.lookup(@TypeOf(plug_deinit), "plug_deinit") orelse return false;
+    plug_pre_reload = dyn_lib.lookup(@TypeOf(plug_pre_reload), "plug_pre_reload") orelse return false;
+    plug_post_reload = dyn_lib.lookup(@TypeOf(plug_post_reload), "plug_post_reload") orelse return false;
+    plug_update = dyn_lib.lookup(@TypeOf(plug_update), "plug_update") orelse return false;
+    plug_event = dyn_lib.lookup(@TypeOf(plug_event), "plug_event") orelse return false;
 
-    engine_loaded = true;
+    plugin_loaded = true;
     return true;
 }
 
@@ -51,26 +49,25 @@ export fn init() void {
     sg.setup(.{ .environment = sokol.glue.environment() });
     simgui.setup(.{});
 
-    // Load the hot-reloadable engine
-    if (!reload_engine()) {
+    // Load the hot-reloadable plugin
+    if (!reload_plugin()) {
         std.log.err("Failed to load engine plugin", .{});
         return;
     }
 
-    engine_init();
+    plug_init();
     std.log.info("Hot-reloadable engine initialized! Press R to reload", .{});
 }
 
 export fn frame() void {
-    if (engine_loaded) {
-        engine_tick();
-        engine_draw();
+    if (plugin_loaded) {
+        plug_update();
     }
 }
 
 export fn cleanup() void {
-    if (engine_loaded) {
-        engine_destroy();
+    if (plugin_loaded) {
+        plug_deinit();
     }
 
     if (libengine) |*lib| {
@@ -87,23 +84,23 @@ export fn event(e: [*c]const sokol.app.Event) void {
 
     // Hot reload on R key
     if (ev.type == .KEY_DOWN and ev.key_code == .R) {
-        std.log.info("Reloading engine...", .{});
-        if (engine_loaded) {
-            const state = engine_pre_reload();
-            if (reload_engine()) {
-                engine_init();
-                engine_post_reload(state);
-                std.log.info("Engine reloaded successfully!", .{});
+        std.log.info("Reloading plugin...", .{});
+        if (plugin_loaded) {
+            const state = plug_pre_reload();
+            if (reload_plugin()) {
+                plug_init();
+                plug_post_reload(state);
+                std.log.info("Plugin reloaded successfully!", .{});
             } else {
-                std.log.err("Engine reload failed!", .{});
+                std.log.err("Plugin reload failed!", .{});
             }
         }
         return;
     }
 
-    // Pass event to engine
-    if (engine_loaded) {
-        engine_event(ev);
+    // Pass event to plugin
+    if (plugin_loaded) {
+        plug_event(ev);
     }
 }
 

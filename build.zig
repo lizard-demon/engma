@@ -46,7 +46,7 @@ pub fn build(b: *std.Build) !void {
         .name = "engine",
         .linkage = .dynamic,
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/engine_plugin.zig"),
+            .root_source_file = b.path("src/engine/plug.zig"),
             .target = target,
             .optimize = optimize,
         }),
