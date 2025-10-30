@@ -16,14 +16,14 @@ pub fn Gfx(comptime ShaderType: type) type {
         pass: sg.PassAction,
         count: u32,
         proj: math.Mat,
+        shader: sg.Shader,
 
         pub fn init() Self {
-            sg.setup(.{ .environment = sokol.glue.environment() });
-            simgui.setup(.{});
-            return .{ .pipe = undefined, .bind = undefined, .pass = undefined, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100) };
+            // Only setup graphics context once globally - not per instance
+            return .{ .pipe = undefined, .bind = undefined, .pass = undefined, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = undefined };
         }
 
-        fn build(world: anytype) struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32 } {
+        fn build(world: anytype) struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader } {
             var verts: [32768]math.Vertex = undefined;
             var idx: [49152]u16 = undefined;
 
@@ -34,13 +34,21 @@ pub fn Gfx(comptime ShaderType: type) type {
             layout.attrs[0].format = .FLOAT3;
             layout.attrs[1].format = .FLOAT4;
 
-            return .{ .pipe = sg.makePipeline(.{ .shader = sg.makeShader(ShaderType.desc(sg.queryBackend())), .layout = layout, .index_type = .UINT16, .depth = .{ .compare = .LESS_EQUAL, .write_enabled = true }, .cull_mode = .BACK }), .bind = .{ .vertex_buffers = .{ sg.makeBuffer(.{ .data = sg.asRange(mesh.vertices) }), .{}, .{}, .{}, .{}, .{}, .{}, .{} }, .index_buffer = sg.makeBuffer(.{ .usage = .{ .index_buffer = true }, .data = sg.asRange(mesh.indices) }) }, .pass = .{ .colors = .{ .{ .load_action = .CLEAR, .clear_value = .{ .r = 0.1, .g = 0.1, .b = 0.2, .a = 1 } }, .{}, .{}, .{}, .{}, .{}, .{}, .{} } }, .count = @intCast(mesh.indices.len) };
+            const shader = sg.makeShader(ShaderType.desc(sg.queryBackend()));
+            const pipeline = sg.makePipeline(.{ .shader = shader, .layout = layout, .index_type = .UINT16, .depth = .{ .compare = .LESS_EQUAL, .write_enabled = true }, .cull_mode = .BACK });
+            const vertex_buffer = sg.makeBuffer(.{ .data = sg.asRange(mesh.vertices) });
+            const index_buffer = sg.makeBuffer(.{ .usage = .{ .index_buffer = true }, .data = sg.asRange(mesh.indices) });
+
+            return .{ .pipe = pipeline, .bind = .{ .vertex_buffers = .{ vertex_buffer, .{}, .{}, .{}, .{}, .{}, .{}, .{} }, .index_buffer = index_buffer }, .pass = .{ .colors = .{ .{ .load_action = .CLEAR, .clear_value = .{ .r = 0.1, .g = 0.1, .b = 0.2, .a = 1 } }, .{}, .{}, .{}, .{}, .{}, .{}, .{} } }, .count = @intCast(mesh.indices.len), .shader = shader };
         }
 
         pub fn draw(self: *Self, world: anytype, view: math.Mat) void {
             if (self.count == 0) {
+                // Clean up any existing resources first
+                self.cleanupResources();
+
                 const m = build(world);
-                self.* = .{ .pipe = m.pipe, .bind = m.bind, .pass = m.pass, .count = m.count, .proj = self.proj };
+                self.* = .{ .pipe = m.pipe, .bind = m.bind, .pass = m.pass, .count = m.count, .proj = self.proj, .shader = m.shader };
             }
 
             simgui.newFrame(.{ .width = sapp.width(), .height = sapp.height(), .delta_time = sapp.frameDuration() });
@@ -70,10 +78,33 @@ pub fn Gfx(comptime ShaderType: type) type {
             _ = self;
             return @floatCast(sapp.frameDuration());
         }
+        fn cleanupResources(self: *Self) void {
+            if (self.count > 0) {
+                // Destroy GPU resources safely
+                if (self.bind.vertex_buffers[0].id != 0) {
+                    sg.destroyBuffer(self.bind.vertex_buffers[0]);
+                }
+                if (self.bind.index_buffer.id != 0) {
+                    sg.destroyBuffer(self.bind.index_buffer);
+                }
+                if (self.pipe.id != 0) {
+                    sg.destroyPipeline(self.pipe);
+                }
+                if (self.shader.id != 0) {
+                    sg.destroyShader(self.shader);
+                }
+
+                // Reset state
+                self.count = 0;
+                self.pipe = sg.Pipeline{};
+                self.bind = sg.Bindings{};
+                self.shader = sg.Shader{};
+            }
+        }
+
         pub fn deinit(self: *Self) void {
-            _ = self;
-            simgui.shutdown();
-            sg.shutdown();
+            // Clean up GPU resources but don't shutdown the entire graphics context
+            self.cleanupResources();
         }
     };
 }

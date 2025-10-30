@@ -9,6 +9,13 @@ var game_engine: hot.HotEngine = undefined;
 export fn init() void {
     const allocator = gpa.allocator();
 
+    // Initialize graphics context once globally
+    const sokol = @import("sokol");
+    const sg = sokol.gfx;
+    const simgui = sokol.imgui;
+    sg.setup(.{ .environment = sokol.glue.environment() });
+    simgui.setup(.{});
+
     // Start with greedy meshed world
     game_engine = hot.HotEngine.init(allocator) catch |err| {
         std.log.err("Failed to initialize hot engine: {}", .{err});
@@ -25,6 +32,14 @@ export fn frame() void {
 
 export fn cleanup() void {
     game_engine.deinit();
+
+    // Shutdown graphics context once globally
+    const sokol = @import("sokol");
+    const sg = sokol.gfx;
+    const simgui = sokol.imgui;
+    simgui.shutdown();
+    sg.shutdown();
+
     _ = gpa.deinit();
 }
 
