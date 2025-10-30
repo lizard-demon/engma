@@ -41,6 +41,23 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
+    // Engine dynamic library for hot swapping
+    const engine_lib = b.addLibrary(.{
+        .name = "engine",
+        .linkage = .dynamic,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/engine_plugin.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    engine_lib.root_module.addImport("sokol", sokol.module("sokol"));
+    engine_lib.root_module.addImport("cimgui", cimgui.module("cimgui"));
+    engine_lib.root_module.addImport("engine", engine_module);
+    engine_lib.step.dependOn(shader);
+    b.installArtifact(engine_lib);
+
     // Hot-swappable executable
     const hot_exe = b.addExecutable(.{
         .name = "fps_hot",
@@ -53,7 +70,6 @@ pub fn build(b: *std.Build) !void {
 
     hot_exe.root_module.addImport("sokol", sokol.module("sokol"));
     hot_exe.root_module.addImport("cimgui", cimgui.module("cimgui"));
-    hot_exe.root_module.addImport("engine", engine_module);
     hot_exe.step.dependOn(shader);
 
     b.installArtifact(hot_exe);
@@ -64,4 +80,8 @@ pub fn build(b: *std.Build) !void {
 
     const run_hot = b.step("hot", "Launch the hot-reloadable meta-engine");
     run_hot.dependOn(&b.addRunArtifact(hot_exe).step);
+    run_hot.dependOn(&engine_lib.step);
+
+    const build_engine = b.step("engine", "Build engine dynamic library");
+    build_engine.dependOn(&engine_lib.step);
 }
