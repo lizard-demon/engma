@@ -24,10 +24,12 @@ pub fn Gfx(comptime ShaderType: type) type {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
             }
-            return .{ .pipe = undefined, .bind = undefined, .pass = undefined, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = undefined };
+            return .{ .pipe = sg.Pipeline{}, .bind = sg.Bindings{}, .pass = sg.PassAction{}, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = sg.Shader{} };
         }
 
-        fn build(world: anytype) struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader } {
+        const BuildResult = struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader };
+
+        fn build(world: anytype) BuildResult {
             var verts: [32768]math.Vertex = undefined;
             var idx: [49152]u16 = undefined;
 
@@ -49,7 +51,7 @@ pub fn Gfx(comptime ShaderType: type) type {
         pub fn draw(self: *Self, world: anytype, view: math.Mat) void {
             if (self.count == 0) {
                 // Clean up any existing resources first
-                self.cleanupResources();
+                self.deinit();
 
                 const m = build(world);
                 self.* = .{ .pipe = m.pipe, .bind = m.bind, .pass = m.pass, .count = m.count, .proj = self.proj, .shader = m.shader };
@@ -82,7 +84,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             _ = self;
             return @floatCast(sapp.frameDuration());
         }
-        fn cleanupResources(self: *Self) void {
+        pub fn deinit(self: *Self) void {
             if (self.count > 0) {
                 // Destroy GPU resources safely
                 if (self.bind.vertex_buffers[0].id != 0) {
@@ -104,17 +106,6 @@ pub fn Gfx(comptime ShaderType: type) type {
                 self.bind = sg.Bindings{};
                 self.shader = sg.Shader{};
             }
-        }
-
-        pub fn deinit(self: *Self) void {
-            // Clean up GPU resources only - don't shutdown global context in hot-swap mode
-            self.cleanupResources();
-        }
-
-        pub fn shutdown() void {
-            // Full shutdown for non-hot-swap mode
-            simgui.shutdown();
-            sg.shutdown();
         }
     };
 }
