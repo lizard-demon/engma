@@ -13,6 +13,7 @@ const Config = struct {
     pub const Gfx = lib.render(shaders.cube);
     pub const Body = phys.quake;
     pub const Keys = lib.input;
+    pub const Audio = lib.audio;
 };
 var game_engine: engine.Engine(Config) = undefined;
 

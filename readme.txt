@@ -103,6 +103,10 @@ INTERFACE CONTRACTS
          event(e: Event) -> void
          forward/back/left/right/jump() -> bool
 
+     Audio Interface:
+         init() -> Audio
+         deinit() -> void
+
 PERFORMANCE CHARACTERISTICS
      - Zero runtime polymorphism (compile-time dispatch)
      - SIMD vector operations where applicable
@@ -144,6 +148,7 @@ EXAMPLES
              pub const Gfx = gfx.sokol(shaders.cube);
              pub const Body = phys.quake;
              pub const Keys = lib.input;
+             pub const Audio = lib.audio;
          };
 
      Empty world for testing:

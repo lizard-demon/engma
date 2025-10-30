@@ -6,6 +6,7 @@ pub const lib = struct {
     pub const math = @import("lib/math.zig");
     pub const input = @import("lib/input.zig").Keys;
     pub const render = @import("lib/render.zig").Gfx;
+    pub const audio = @import("lib/audio.zig").Audio;
 };
 
 pub const world = struct {
@@ -31,6 +32,7 @@ pub fn Engine(comptime Config: type) type {
         gfx: Config.Gfx,
         body: Config.Body,
         keys: Config.Keys,
+        audio: Config.Audio,
 
         pub fn init() Self {
             return .{
@@ -38,6 +40,7 @@ pub fn Engine(comptime Config: type) type {
                 .gfx = Config.Gfx.init(),
                 .body = Config.Body.init(),
                 .keys = Config.Keys.init(),
+                .audio = Config.Audio.init(),
             };
         }
 
@@ -61,6 +64,7 @@ pub fn Engine(comptime Config: type) type {
         }
 
         pub fn deinit(self: *Self) void {
+            self.audio.deinit();
             self.gfx.deinit();
         }
     };

@@ -8,6 +8,8 @@ pub const Player = struct {
     yaw: f32,
     pitch: f32,
     ground: bool,
+    prev_ground: bool,
+
     mx: f32,
     my: f32,
     size: math.Vec,
@@ -19,6 +21,8 @@ pub const Player = struct {
             .yaw = 0,
             .pitch = 0,
             .ground = false,
+            .prev_ground = false,
+
             .mx = 0,
             .my = 0,
             .size = math.Vec.new(0.8, 1.6, 0.8), // width, height, depth
@@ -49,10 +53,13 @@ pub const Player = struct {
 
         self.vel = math.Vec.new((s * fw + c * st) * move_force, self.vel.data[1] + gravity * dt, (-c * fw + s * st) * move_force);
 
-        if (keys.jump() and self.ground) self.vel.data[1] = jump_force;
+        if (keys.jump() and self.ground) {
+            self.vel.data[1] = jump_force;
+        }
 
         // Collision detection per axis - integrated collision system
         const old_pos = self.pos;
+        self.prev_ground = self.ground;
         self.ground = false;
 
         inline for (.{ 0, 2, 1 }) |axis| {
