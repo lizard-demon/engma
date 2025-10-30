@@ -62,6 +62,6 @@ pub fn build(b: *std.Build) !void {
     const run = b.step("run", "Launch the ultraminimal FPS experience");
     run.dependOn(&b.addRunArtifact(exe).step);
 
-    const run_hot = b.step("hot", "Launch the hot-swappable meta-engine with file watching");
+    const run_hot = b.step("hot", "Launch the hot-reloadable meta-engine");
     run_hot.dependOn(&b.addRunArtifact(hot_exe).step);
 }
