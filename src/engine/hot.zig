@@ -1,12 +1,11 @@
-// Hot-swappable meta-engine - simplified runtime polymorphism
+// Hot-swappable meta-engine - elegant runtime polymorphism
 const std = @import("std");
 const engine = @import("mod.zig");
-const math = engine.lib.math;
 
-// Player state for preservation across hot-swaps
-const PlayerState = struct {
-    pos: math.Vec,
-    vel: math.Vec,
+// Player state preservation
+const State = struct {
+    pos: engine.lib.math.Vec,
+    vel: engine.lib.math.Vec,
     yaw: f32,
     pitch: f32,
     ground: bool,
@@ -14,184 +13,115 @@ const PlayerState = struct {
     crouch: bool,
 };
 
-// Simple hot-swap demo - just swap between world implementations
+// Engine configurations - add new ones here
+const Configs = [_]type{ GreedyConfig, VoxelConfig, EmptyConfig };
+const Names = [_][]const u8{ "greedy", "voxel", "empty" };
+
 pub const HotEngine = struct {
     allocator: std.mem.Allocator,
-    current_engine: *anyopaque,
-    engine_type: EngineType,
+    engine: *anyopaque,
+    config_index: usize,
     swapping: bool,
-    last_swap_time: i64,
+    last_swap: i64,
 
-    const EngineType = enum { greedy, voxel, empty };
-    const SWAP_COOLDOWN_MS = 100; // Minimum 100ms between swaps
+    const COOLDOWN_MS = 100;
 
     pub fn init(allocator: std.mem.Allocator) !HotEngine {
-        // Start with greedy config
-        const greedy_engine = try allocator.create(engine.Engine(GreedyConfig));
-        greedy_engine.* = engine.Engine(GreedyConfig).init();
+        const eng = try allocator.create(engine.Engine(Configs[0]));
+        eng.* = engine.Engine(Configs[0]).init();
 
         return HotEngine{
             .allocator = allocator,
-            .current_engine = greedy_engine,
-            .engine_type = .greedy,
+            .engine = eng,
+            .config_index = 0,
             .swapping = false,
-            .last_swap_time = 0,
+            .last_swap = 0,
         };
     }
 
     pub fn tick(self: *HotEngine) void {
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.tick();
-            },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.tick();
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.tick();
-            },
-        }
+        self.call("tick", .{});
     }
 
     pub fn draw(self: *HotEngine) void {
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.draw();
-            },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.draw();
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.draw();
-            },
-        }
+        self.call("draw", .{});
     }
 
     pub fn event(self: *HotEngine, e: anytype) void {
-        // Handle hot-swap key (F5) with cooldown protection
-        if (e.type == .KEY_DOWN and e.key_code == .F5) { // F5
-            const current_time = std.time.milliTimestamp();
-
-            // Prevent rapid swapping that could cause crashes
-            if (self.swapping) {
-                std.log.warn("Hot-swap already in progress, ignoring...", .{});
-                return;
+        if (e.type == .KEY_DOWN and e.key_code == .F5) {
+            const now = std.time.milliTimestamp();
+            if (!self.swapping and now - self.last_swap >= COOLDOWN_MS) {
+                self.swap() catch |err| std.log.err("Swap failed: {}", .{err});
             }
-
-            if (current_time - self.last_swap_time < SWAP_COOLDOWN_MS) {
-                std.log.warn("Hot-swap cooldown active, wait {}ms", .{SWAP_COOLDOWN_MS - (current_time - self.last_swap_time)});
-                return;
-            }
-
-            self.hotSwap() catch |err| {
-                std.log.err("Hot-swap failed: {}", .{err});
-                self.swapping = false; // Reset on error
-            };
             return;
         }
-
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.event(e);
-            },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.event(e);
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.event(e);
-            },
-        }
+        self.call("event", .{e});
     }
 
     pub fn deinit(self: *HotEngine) void {
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
-                self.allocator.destroy(eng);
+        self.call("deinit", .{});
+        self.destroyCurrent();
+    }
+
+    // Generic function call dispatcher
+    fn call(self: *HotEngine, comptime func_name: []const u8, args: anytype) void {
+        switch (self.config_index) {
+            inline 0...Configs.len - 1 => |i| {
+                const eng: *engine.Engine(Configs[i]) = @ptrCast(@alignCast(self.engine));
+                if (comptime std.mem.eql(u8, func_name, "tick")) {
+                    eng.tick();
+                } else if (comptime std.mem.eql(u8, func_name, "draw")) {
+                    eng.draw();
+                } else if (comptime std.mem.eql(u8, func_name, "event")) {
+                    eng.event(args[0]);
+                } else if (comptime std.mem.eql(u8, func_name, "deinit")) {
+                    eng.deinit();
+                }
             },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
-                self.allocator.destroy(eng);
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
-                self.allocator.destroy(eng);
-            },
+            else => unreachable,
         }
     }
 
-    // Hot-swap between different world implementations
-    pub fn hotSwap(self: *HotEngine) !void {
+    // Hot-swap to next configuration
+    fn swap(self: *HotEngine) !void {
         self.swapping = true;
         defer {
             self.swapping = false;
-            self.last_swap_time = std.time.milliTimestamp();
+            self.last_swap = std.time.milliTimestamp();
         }
 
-        std.log.info("Hot-swapping world implementation...", .{});
+        // Preserve state
+        const state = self.extractState();
 
-        // Preserve player state before swap
-        const player_state = self.extractPlayerState();
+        // Destroy current engine
+        self.call("deinit", .{});
+        self.destroyCurrent();
 
-        // Deinit current engine safely
-        self.deinitCurrent();
+        // Cycle to next config
+        self.config_index = (self.config_index + 1) % Configs.len;
 
-        // Cycle to next implementation
-        const next_type: EngineType = switch (self.engine_type) {
-            .greedy => .voxel,
-            .voxel => .empty,
-            .empty => .greedy,
-        };
-
-        // Create new engine with error handling
-        switch (next_type) {
-            .greedy => {
-                const new_engine = try self.allocator.create(engine.Engine(GreedyConfig));
-                errdefer self.allocator.destroy(new_engine);
-                new_engine.* = engine.Engine(GreedyConfig).init();
-                self.current_engine = new_engine;
-                std.log.info("Swapped to greedy meshed world", .{});
+        // Create new engine
+        switch (self.config_index) {
+            inline 0...Configs.len - 1 => |i| {
+                const new_engine = try self.allocator.create(engine.Engine(Configs[i]));
+                new_engine.* = engine.Engine(Configs[i]).init();
+                self.engine = new_engine;
             },
-            .voxel => {
-                const new_engine = try self.allocator.create(engine.Engine(VoxelConfig));
-                errdefer self.allocator.destroy(new_engine);
-                new_engine.* = engine.Engine(VoxelConfig).init();
-                self.current_engine = new_engine;
-                std.log.info("Swapped to voxel world", .{});
-            },
-            .empty => {
-                const new_engine = try self.allocator.create(engine.Engine(EmptyConfig));
-                errdefer self.allocator.destroy(new_engine);
-                new_engine.* = engine.Engine(EmptyConfig).init();
-                self.current_engine = new_engine;
-                std.log.info("Swapped to empty world", .{});
-            },
+            else => unreachable,
         }
 
-        self.engine_type = next_type;
+        // Restore state
+        self.restoreState(state);
 
-        // Restore player state after swap with validation
-        self.restorePlayerState(player_state);
+        std.log.info("Swapped to {s} world", .{Names[self.config_index]});
     }
 
     // Extract player state from current engine
-    fn extractPlayerState(self: *HotEngine) PlayerState {
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                return PlayerState{
+    fn extractState(self: *HotEngine) State {
+        switch (self.config_index) {
+            inline 0...Configs.len - 1 => |i| {
+                const eng: *engine.Engine(Configs[i]) = @ptrCast(@alignCast(self.engine));
+                return State{
                     .pos = eng.body.pos,
                     .vel = eng.body.vel,
                     .yaw = eng.body.yaw,
@@ -201,38 +131,15 @@ pub const HotEngine = struct {
                     .crouch = eng.body.crouch,
                 };
             },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                return PlayerState{
-                    .pos = eng.body.pos,
-                    .vel = eng.body.vel,
-                    .yaw = eng.body.yaw,
-                    .pitch = eng.body.pitch,
-                    .ground = eng.body.ground,
-                    .prev_ground = eng.body.prev_ground,
-                    .crouch = eng.body.crouch,
-                };
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                return PlayerState{
-                    .pos = eng.body.pos,
-                    .vel = eng.body.vel,
-                    .yaw = eng.body.yaw,
-                    .pitch = eng.body.pitch,
-                    .ground = eng.body.ground,
-                    .prev_ground = eng.body.prev_ground,
-                    .crouch = eng.body.crouch,
-                };
-            },
+            else => unreachable,
         }
     }
 
     // Restore player state to new engine
-    fn restorePlayerState(self: *HotEngine, state: PlayerState) void {
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
+    fn restoreState(self: *HotEngine, state: State) void {
+        switch (self.config_index) {
+            inline 0...Configs.len - 1 => |i| {
+                const eng: *engine.Engine(Configs[i]) = @ptrCast(@alignCast(self.engine));
                 eng.body.pos = state.pos;
                 eng.body.vel = state.vel;
                 eng.body.yaw = state.yaw;
@@ -241,53 +148,23 @@ pub const HotEngine = struct {
                 eng.body.prev_ground = state.prev_ground;
                 eng.body.crouch = state.crouch;
             },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.body.pos = state.pos;
-                eng.body.vel = state.vel;
-                eng.body.yaw = state.yaw;
-                eng.body.pitch = state.pitch;
-                eng.body.ground = state.ground;
-                eng.body.prev_ground = state.prev_ground;
-                eng.body.crouch = state.crouch;
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.body.pos = state.pos;
-                eng.body.vel = state.vel;
-                eng.body.yaw = state.yaw;
-                eng.body.pitch = state.pitch;
-                eng.body.ground = state.ground;
-                eng.body.prev_ground = state.prev_ground;
-                eng.body.crouch = state.crouch;
-            },
+            else => unreachable,
         }
     }
 
-    fn deinitCurrent(self: *HotEngine) void {
-        // Safe deinitialization
-
-        switch (self.engine_type) {
-            .greedy => {
-                const eng: *engine.Engine(GreedyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
+    // Destroy current engine instance
+    fn destroyCurrent(self: *HotEngine) void {
+        switch (self.config_index) {
+            inline 0...Configs.len - 1 => |i| {
+                const eng: *engine.Engine(Configs[i]) = @ptrCast(@alignCast(self.engine));
                 self.allocator.destroy(eng);
             },
-            .voxel => {
-                const eng: *engine.Engine(VoxelConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
-                self.allocator.destroy(eng);
-            },
-            .empty => {
-                const eng: *engine.Engine(EmptyConfig) = @ptrCast(@alignCast(self.current_engine));
-                eng.deinit();
-                self.allocator.destroy(eng);
-            },
+            else => unreachable,
         }
     }
 };
 
-// Configuration types for hot-swapping
+// Configuration types
 const GreedyConfig = struct {
     pub const World = engine.world.greedy;
     pub const Gfx = engine.lib.render(engine.shader.cube);
