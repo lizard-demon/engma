@@ -5,7 +5,7 @@ const sg = sokol.gfx;
 const sapp = sokol.app;
 const simgui = sokol.imgui;
 const ig = @import("cimgui");
-const math = @import("../lib/math.zig");
+const math = @import("math.zig");
 
 pub fn Gfx(comptime ShaderType: type) type {
     return struct {

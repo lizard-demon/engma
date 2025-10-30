@@ -5,20 +5,18 @@ const std = @import("std");
 pub const lib = struct {
     pub const math = @import("lib/math.zig");
     pub const input = @import("lib/input.zig").Keys;
+    pub const render = @import("lib/render.zig").Gfx;
 };
 
 pub const world = struct {
     pub const voxel = @import("world/voxel.zig").World;
     pub const empty = @import("world/empty.zig").World;
+    pub const greedy = @import("world/greedy.zig").World;
 };
 
 pub const physics = struct {
     pub const quake = @import("physics/quake.zig").Player;
     pub const simple = @import("physics/simple.zig").Player;
-};
-
-pub const render = struct {
-    pub const sokol = @import("render/sokol.zig").Gfx;
 };
 
 pub const shader = struct {

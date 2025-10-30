@@ -5,13 +5,12 @@ const engine = @import("engine");
 
 const world = engine.world;
 const phys = engine.physics;
-const gfx = engine.render;
 const lib = engine.lib;
 const shaders = engine.shader;
 
 const Config = struct {
-    pub const World = world.voxel;
-    pub const Gfx = gfx.sokol(shaders.cube);
+    pub const World = world.greedy;
+    pub const Gfx = lib.render(shaders.cube);
     pub const Body = phys.quake;
     pub const Keys = lib.input;
 };
