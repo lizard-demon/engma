@@ -23,6 +23,8 @@ pub const shader = struct {
     pub const cube = @import("shader/cube/mod.zig");
 };
 
+pub const hot = @import("hot.zig");
+
 pub fn Engine(comptime Config: type) type {
     return struct {
         const Self = @This();
