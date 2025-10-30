@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) !void {
     const hot_exe = b.addExecutable(.{
         .name = "fps_hot",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/hot_main.zig"),
+            .root_source_file = b.path("src/hot.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -62,6 +62,6 @@ pub fn build(b: *std.Build) !void {
     const run = b.step("run", "Launch the ultraminimal FPS experience");
     run.dependOn(&b.addRunArtifact(exe).step);
 
-    const run_hot = b.step("hot", "Launch the hot-swappable meta-engine (F5 to swap)");
+    const run_hot = b.step("hot", "Launch the hot-swappable meta-engine with file watching");
     run_hot.dependOn(&b.addRunArtifact(hot_exe).step);
 }
