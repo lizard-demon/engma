@@ -19,7 +19,11 @@ pub fn Gfx(comptime ShaderType: type) type {
         shader: sg.Shader,
 
         pub fn init() Self {
-            // Only setup graphics context once globally - not per instance
+            // Check if graphics context is already initialized
+            if (!sg.isvalid()) {
+                sg.setup(.{ .environment = sokol.glue.environment() });
+                simgui.setup(.{});
+            }
             return .{ .pipe = undefined, .bind = undefined, .pass = undefined, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = undefined };
         }
 
@@ -103,8 +107,14 @@ pub fn Gfx(comptime ShaderType: type) type {
         }
 
         pub fn deinit(self: *Self) void {
-            // Clean up GPU resources but don't shutdown the entire graphics context
+            // Clean up GPU resources only - don't shutdown global context in hot-swap mode
             self.cleanupResources();
+        }
+
+        pub fn shutdown() void {
+            // Full shutdown for non-hot-swap mode
+            simgui.shutdown();
+            sg.shutdown();
         }
     };
 }

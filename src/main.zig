@@ -27,6 +27,8 @@ export fn frame() void {
 
 export fn cleanup() void {
     game_engine.deinit();
+    // Shutdown graphics context for regular (non-hot-swap) mode
+    lib.render(shaders.cube).shutdown();
 }
 
 export fn event(e: [*c]const @import("sokol").app.Event) void {
