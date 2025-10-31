@@ -16,12 +16,12 @@ void main() {
 in vec4 color; in vec3 world_pos;
 out vec4 frag_color;
 
-// Interleaved gradient dithering - adapted from Portal 2 X360
+// Ultra simple elegant dithering
 vec3 screenSpaceDither(vec2 screenPos) {
-    // Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified
-    vec3 dither = dot(vec2(171.0, 231.0), screenPos).xxx;
-    dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0)) - vec3(0.5);
-    return (dither.rgb / 255.0) * 0.375;
+    vec2 scaledPos = screenPos * vec2(0.06711056, 0.00583715);
+    float innerFract = fract(scaledPos.x + scaledPos.y);
+    float dither = fract(52.9829189 * innerFract);
+    return vec3(dither - 0.5) / 255.0;
 }
 
 // Simple temporal anti-aliasing using screen-space derivatives
