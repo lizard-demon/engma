@@ -16,6 +16,14 @@ void main() {
 in vec4 color; in vec3 world_pos;
 out vec4 frag_color;
 
+// Interleaved gradient dithering - adapted from Portal 2 X360
+vec3 screenSpaceDither(vec2 screenPos) {
+    // Iestyn's RGB dither (7 asm instructions) from Portal 2 X360, slightly modified
+    vec3 dither = dot(vec2(171.0, 231.0), screenPos).xxx;
+    dither.rgb = fract(dither.rgb / vec3(103.0, 71.0, 97.0)) - vec3(0.5);
+    return (dither.rgb / 255.0) * 0.375;
+}
+
 void main() {
     vec3 n = normalize(cross(dFdx(world_pos), dFdy(world_pos)));
     
@@ -30,7 +38,11 @@ void main() {
     // Simple lighting
     float light = dot(n, normalize(vec3(0.6, 1.0, 0.4))) * 0.4 + 0.6;
     
-    frag_color = vec4(color.rgb * edge * light, color.a);
+    // Apply dithering
+    vec3 dither = screenSpaceDither(gl_FragCoord.xy);
+    vec3 finalColor = color.rgb * edge * light + dither;
+    
+    frag_color = vec4(finalColor, color.a);
 }
 @end
 
