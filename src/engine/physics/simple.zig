@@ -34,7 +34,7 @@ pub const Player = struct {
         return .{ .min = math.Vec.sub(self.pos, half), .max = math.Vec.add(self.pos, half) };
     }
 
-    pub fn tick(self: *Player, world: anytype, keys: anytype, dt: f32) void {
+    pub fn tick(self: *Player, world: anytype, keys: anytype, audio: anytype, dt: f32) void {
         // Mouse look
         self.yaw += self.mx * 0.002;
         self.pitch = std.math.clamp(self.pitch + self.my * 0.002, -1.5, 1.5);
@@ -55,6 +55,7 @@ pub const Player = struct {
 
         if (keys.jump() and self.ground) {
             self.vel.data[1] = jump_force;
+            audio.jump();
         }
 
         // Collision detection per axis - integrated collision system
@@ -69,7 +70,12 @@ pub const Player = struct {
                 self.pos.data[axis] = old_pos.data[axis];
 
                 if (axis == 1) { // Y axis
-                    if (self.vel.data[1] <= 0) self.ground = true;
+                    if (self.vel.data[1] <= 0) {
+                        self.ground = true;
+                        if (!self.prev_ground and self.vel.data[1] < -5.0) {
+                            audio.land();
+                        }
+                    }
                     self.vel.data[1] = 0;
                 } else {
                     // Stop horizontal movement on collision
@@ -81,6 +87,9 @@ pub const Player = struct {
         // Floor clamp
         if (self.pos.data[1] < self.size.data[1] * 0.5) {
             self.pos.data[1] = self.size.data[1] * 0.5;
+            if (!self.prev_ground and self.vel.data[1] < -5.0) {
+                audio.land();
+            }
             self.vel.data[1] = 0;
             self.ground = true;
         }

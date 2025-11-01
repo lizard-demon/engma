@@ -1,6 +1,7 @@
 // Quake movement physics - extracted from duel
 const std = @import("std");
 const math = @import("../lib/math.zig");
+const sokol = @import("sokol");
 
 const Vec = math.Vec;
 const Mat = math.Mat;
@@ -52,7 +53,7 @@ pub const Player = struct {
         };
     }
 
-    pub fn tick(self: *Player, world: anytype, keys: anytype, dt: f32) void {
+    pub fn tick(self: *Player, world: anytype, keys: anytype, audio: anytype, dt: f32) void {
         // Movement input - convert WASD to movement vector
         var dir = Vec.zero();
         const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
@@ -88,10 +89,11 @@ pub const Player = struct {
         if (keys.jump() and self.ground) {
             self.vel.data[1] = cfg.jump_power;
             self.ground = false;
+            audio.jump();
         }
 
         // Physics
-        Update.physics(self, world, dt);
+        Update.physics(self, world, audio, dt);
     }
 
     pub const Update = struct {
@@ -123,7 +125,7 @@ pub const Player = struct {
             self.vel.data[2] *= f;
         }
 
-        pub fn physics(self: *Player, world: anytype, dt: f32) void {
+        pub fn physics(self: *Player, world: anytype, audio: anytype, dt: f32) void {
             self.vel.data[1] -= cfg.phys.gravity * dt;
 
             const h: f32 = if (self.crouch) cfg.size.crouch else cfg.size.stand;
@@ -138,6 +140,11 @@ pub const Player = struct {
 
             self.prev_ground = self.ground;
             self.ground = r.hit and @abs(r.vel.data[1]) < cfg.phys.ground_thresh;
+
+            // Landing sound
+            if (self.ground and !self.prev_ground and self.vel.data[1] < -2.0) {
+                audio.land();
+            }
         }
     };
 
@@ -294,3 +301,73 @@ fn checkStatic(world: anytype, aabb: BBox) bool {
     }
     return false;
 }
+
+// Simple map loading system
+pub const Map = struct {
+    blocks: [32][32][32]bool,
+
+    pub fn init() Map {
+        return .{ .blocks = std.mem.zeroes([32][32][32]bool) };
+    }
+
+    pub fn get(self: *const Map, x: i32, y: i32, z: i32) bool {
+        if (x < 0 or x >= 32 or y < 0 or y >= 32 or z < 0 or z >= 32) return false;
+        return self.blocks[@intCast(x)][@intCast(y)][@intCast(z)];
+    }
+
+    pub fn set(self: *Map, x: i32, y: i32, z: i32, value: bool) void {
+        if (x < 0 or x >= 32 or y < 0 or y >= 32 or z < 0 or z >= 32) return;
+        self.blocks[@intCast(x)][@intCast(y)][@intCast(z)] = value;
+    }
+
+    pub fn loadFromString(self: *Map, data: []const u8) !void {
+        var lines = std.mem.split(u8, data, "\n");
+        var y: i32 = 0;
+
+        while (lines.next()) |line| {
+            if (y >= 32) break;
+            var x: i32 = 0;
+            for (line) |char| {
+                if (x >= 32) break;
+                switch (char) {
+                    '#' => {
+                        var z: i32 = 0;
+                        while (z < 32) : (z += 1) {
+                            self.set(x, y, z, true);
+                        }
+                    },
+                    '.' => {}, // Empty space
+                    else => {},
+                }
+                x += 1;
+            }
+            y += 1;
+        }
+    }
+
+    pub fn createTestMap(self: *Map) void {
+        // Create a simple test map - floor and some walls
+        var x: i32 = 0;
+        while (x < 32) : (x += 1) {
+            var z: i32 = 0;
+            while (z < 32) : (z += 1) {
+                self.set(x, 0, z, true); // Floor
+                if (x == 0 or x == 31 or z == 0 or z == 31) {
+                    var y: i32 = 1;
+                    while (y < 4) : (y += 1) {
+                        self.set(x, y, z, true); // Walls
+                    }
+                }
+            }
+        }
+
+        // Add some platforms
+        var px: i32 = 10;
+        while (px < 15) : (px += 1) {
+            var pz: i32 = 10;
+            while (pz < 15) : (pz += 1) {
+                self.set(px, 3, pz, true);
+            }
+        }
+    }
+};

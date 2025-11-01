@@ -1,4 +1,4 @@
-./duel
+duel/
 
 # Zig build artifacts
 zig-out/

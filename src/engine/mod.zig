@@ -47,7 +47,7 @@ pub fn Engine(comptime Config: type) type {
         pub fn tick(self: *Self) void {
             const dt = self.gfx.dt();
             self.keys.tick();
-            self.body.tick(&self.world, &self.keys, dt);
+            self.body.tick(&self.world, &self.keys, &self.audio, dt);
         }
 
         pub fn draw(self: *Self) void {
