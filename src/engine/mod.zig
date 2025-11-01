@@ -24,15 +24,6 @@ pub const shader = struct {
     pub const cube = @import("shader/cube/mod.zig");
 };
 
-// Generic data access for modules
-const ModuleData = struct {
-    world: ?*const anyopaque = null,
-    input: ?*const anyopaque = null,
-    physics: ?*const anyopaque = null,
-    audio: ?*const anyopaque = null,
-    render: ?*const anyopaque = null,
-};
-
 pub fn Engine(comptime Config: type) type {
     return struct {
         const Self = @This();
@@ -90,14 +81,28 @@ pub fn Engine(comptime Config: type) type {
             self.keys.deinit(allocator);
         }
 
-        // Generic data access for modules
-        pub fn getData(self: *const Self, comptime module_name: []const u8) *const anyopaque {
-            if (std.mem.eql(u8, module_name, "world")) return &self.world;
-            if (std.mem.eql(u8, module_name, "input")) return &self.keys;
-            if (std.mem.eql(u8, module_name, "physics")) return &self.body;
-            if (std.mem.eql(u8, module_name, "audio")) return &self.audio;
-            if (std.mem.eql(u8, module_name, "render")) return &self.gfx;
-            @panic("Unknown module");
+        // Zig-idiomatic compile-time type-safe module access
+        pub fn getModule(self: *const Self, comptime T: type) *const T {
+            return switch (T) {
+                Config.World => &self.world,
+                Config.Keys => &self.keys,
+                Config.Body => &self.body,
+                Config.Audio => &self.audio,
+                Config.Gfx => &self.gfx,
+                else => @compileError("Unknown module type: " ++ @typeName(T)),
+            };
+        }
+
+        // Mutable version for modules that need to modify state
+        pub fn getModuleMut(self: *Self, comptime T: type) *T {
+            return switch (T) {
+                Config.World => &self.world,
+                Config.Keys => &self.keys,
+                Config.Body => &self.body,
+                Config.Audio => &self.audio,
+                Config.Gfx => &self.gfx,
+                else => @compileError("Unknown module type: " ++ @typeName(T)),
+            };
         }
     };
 }
