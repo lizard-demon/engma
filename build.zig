@@ -16,19 +16,19 @@ pub fn build(b: *std.Build) !void {
     // Shader compilation
     const shader = try @import("shdc").createSourceFile(b, .{
         .shdc_dep = shdc,
-        .input = "src/engine/shader/cube/shader.glsl",
-        .output = "src/engine/shader/cube/shader.glsl.zig",
+        .input = "src/engma/shader/cube/shader.glsl",
+        .output = "src/engma/shader/cube/shader.glsl.zig",
         .slang = .{ .glsl410 = true, .glsl300es = true, .metal_macos = true, .wgsl = true },
     });
 
-    // Engine module
-    const engine_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/mod.zig"),
+    // Engma module
+    const engma_module = b.createModule(.{
+        .root_source_file = b.path("src/engma/mod.zig"),
         .target = target,
         .optimize = optimize,
     });
-    engine_module.addImport("sokol", dep_sokol.module("sokol"));
-    engine_module.addImport("cimgui", dep_cimgui.module("cimgui"));
+    engma_module.addImport("sokol", dep_sokol.module("sokol"));
+    engma_module.addImport("cimgui", dep_cimgui.module("cimgui"));
 
     // Main module
     const main_module = b.createModule(.{
@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) !void {
     });
     main_module.addImport("sokol", dep_sokol.module("sokol"));
     main_module.addImport("cimgui", dep_cimgui.module("cimgui"));
-    main_module.addImport("engine", engine_module);
+    main_module.addImport("engma", engma_module);
 
     // Build for WASM or native
     if (target.result.cpu.arch.isWasm()) {

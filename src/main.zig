@@ -1,12 +1,12 @@
 // Meta-Engine: Brutalist, hyper-minimalist, swappable meta-engine
 // Pure abstraction over implementations - based on the architectural genius of the FPS demo
 const std = @import("std");
-const engine = @import("engine");
+const engma = @import("engma");
 
-const world = engine.world;
-const phys = engine.physics;
-const lib = engine.lib;
-const shaders = engine.shader;
+const world = engma.world;
+const phys = engma.physics;
+const lib = engma.lib;
+const shaders = engma.shader;
 
 const Config = struct {
     pub const World = world.greedy;
@@ -16,11 +16,11 @@ const Config = struct {
     pub const Audio = lib.audio;
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var game_engine: engine.Engine(Config) = undefined;
+var game_engine: engma.Engine(Config) = undefined;
 
 export fn init() void {
     const allocator = gpa.allocator();
-    game_engine = engine.Engine(Config).init(allocator);
+    game_engine = engma.Engine(Config).init(allocator);
 }
 
 export fn frame() void {
