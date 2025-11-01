@@ -17,7 +17,6 @@ pub fn Gfx(comptime ShaderType: type) type {
         count: u32,
         proj: math.Mat,
         shader: sg.Shader,
-        engine_ref: ?*const anyopaque = null,
 
         pub fn init(allocator: std.mem.Allocator) Self {
             _ = allocator;
@@ -26,11 +25,7 @@ pub fn Gfx(comptime ShaderType: type) type {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
             }
-            return .{ .pipe = sg.Pipeline{}, .bind = sg.Bindings{}, .pass = sg.PassAction{}, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = sg.Shader{}, .engine_ref = null };
-        }
-
-        pub fn setEngineRef(self: *Self, engine_ref: *const anyopaque) void {
-            self.engine_ref = engine_ref;
+            return .{ .pipe = sg.Pipeline{}, .bind = sg.Bindings{}, .pass = sg.PassAction{}, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = sg.Shader{} };
         }
 
         const BuildResult = struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader };

@@ -60,15 +60,47 @@ pub const Player = struct {
     }
 
     pub fn tick(self: *Player, dt: f32) void {
-        // TODO: Get world, keys, audio data generically
-        _ = dt;
-        // For now, just update basic physics
+        // Basic physics update - movement will be handled via engine orchestration
         self.prev_ground = self.ground;
-        // TODO: Movement will be handled when we have generic data access
 
-        // TODO: Quake movement will be implemented with generic data access
+        // Apply gravity
+        if (!self.ground) {
+            self.vel.data[1] -= cfg.phys.gravity * dt;
+        }
 
-        // TODO: All physics interactions will be implemented with generic data access
+        // Update position
+        self.pos = Vec.add(self.pos, self.vel.scale(dt));
+    }
+
+    // Movement input - called by engine with input data
+    pub fn handleMovement(self: *Player, keys: anytype, dt: f32) void {
+        var dir = Vec.zero();
+        const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
+        const st: f32 = if (keys.right()) 1 else if (keys.left()) -1 else 0;
+
+        if (st != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
+        if (fw != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
+
+        // Apply movement using the existing Update system
+        if (dir.len() > cfg.move.min_len) {
+            Update.movement(self, dir, dt);
+        } else if (self.ground) {
+            Update.friction(self, dt);
+        }
+    }
+
+    // Jump handling - called by engine with input data
+    pub fn handleJump(self: *Player, keys: anytype, audio: anytype) void {
+        if (keys.jump() and self.ground) {
+            self.vel.data[1] = cfg.jump_power;
+            self.ground = false;
+            audio.jump();
+        }
+    }
+
+    // Collision handling - called by engine with world data
+    pub fn handleCollision(self: *Player, world: anytype, audio: anytype, dt: f32) void {
+        Update.physics(self, world, audio, dt);
     }
 
     pub const Update = struct {

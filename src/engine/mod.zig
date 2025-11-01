@@ -50,12 +50,17 @@ pub fn Engine(comptime Config: type) type {
             // Update delta time from platform
             self.dt = self.gfx.getDeltaTime();
 
-            // All modules tick independently with dt
+            // Module updates
             self.keys.tick(self.dt);
             self.world.tick(self.dt);
-            self.body.tick(self.dt);
             self.audio.tick(self.dt);
             self.gfx.tick(self.dt);
+
+            // Physics orchestration - engine coordinates module interactions
+            self.body.handleMovement(&self.keys, self.dt);
+            self.body.handleJump(&self.keys, &self.audio);
+            self.body.handleCollision(&self.world, &self.audio, self.dt);
+            self.body.tick(self.dt);
         }
 
         pub fn draw(self: *Self) void {

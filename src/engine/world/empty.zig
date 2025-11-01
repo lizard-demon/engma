@@ -3,8 +3,24 @@ const std = @import("std");
 const math = @import("../lib/math.zig");
 
 pub const World = struct {
-    pub fn init() World {
+    pub fn init(allocator: std.mem.Allocator) World {
+        _ = allocator;
         return .{};
+    }
+
+    pub fn deinit(self: *World, allocator: std.mem.Allocator) void {
+        _ = self;
+        _ = allocator;
+    }
+
+    pub fn tick(self: *World, dt: f32) void {
+        _ = self;
+        _ = dt;
+    }
+
+    pub fn event(self: *World, e: anytype) void {
+        _ = self;
+        _ = e;
     }
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {

@@ -1,4 +1,5 @@
 // Bitpacked voxel world - 4096 voxels in 512 bytes
+const std = @import("std");
 const math = @import("../lib/math.zig");
 
 const SIZE = 16;
@@ -6,7 +7,8 @@ const SIZE = 16;
 pub const World = struct {
     bits: [SIZE * SIZE * SIZE / 8]u8,
 
-    pub fn init() World {
+    pub fn init(allocator: std.mem.Allocator) World {
+        _ = allocator;
         var w = World{ .bits = [_]u8{0} ** (SIZE * SIZE * SIZE / 8) };
 
         // Procedural world: floor + walls + pillars
@@ -19,6 +21,21 @@ pub const World = struct {
             }
         };
         return w;
+    }
+
+    pub fn deinit(self: *World, allocator: std.mem.Allocator) void {
+        _ = self;
+        _ = allocator;
+    }
+
+    pub fn tick(self: *World, dt: f32) void {
+        _ = self;
+        _ = dt;
+    }
+
+    pub fn event(self: *World, e: anytype) void {
+        _ = self;
+        _ = e;
     }
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
