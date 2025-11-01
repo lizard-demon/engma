@@ -14,6 +14,7 @@ pub const world = struct {
 
 pub const physics = struct {
     pub const quake = @import("physics/quake.zig").Player;
+    pub const basic = @import("physics/basic.zig").Player;
 };
 
 pub const shader = struct {
