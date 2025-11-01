@@ -41,7 +41,8 @@ pub const Player = struct {
         const pitch_limit = std.math.pi / 2.0;
     };
 
-    pub fn init() Player {
+    pub fn init(allocator: std.mem.Allocator) Player {
+        _ = allocator;
         return .{
             .pos = Vec.new(2.0, 2.0, 2.0),
             .vel = Vec.zero(),
@@ -53,47 +54,21 @@ pub const Player = struct {
         };
     }
 
-    pub fn tick(self: *Player, world: anytype, keys: anytype, audio: anytype, dt: f32) void {
-        // Movement input - convert WASD to movement vector
-        var dir = Vec.zero();
-        const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
-        const st: f32 = if (keys.right()) 1 else if (keys.left()) -1 else 0;
+    pub fn deinit(self: *Player, allocator: std.mem.Allocator) void {
+        _ = self;
+        _ = allocator;
+    }
 
-        if (st != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
-        if (fw != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
+    pub fn tick(self: *Player, dt: f32) void {
+        // TODO: Get world, keys, audio data generically
+        _ = dt;
+        // For now, just update basic physics
+        self.prev_ground = self.ground;
+        // TODO: Movement will be handled when we have generic data access
 
-        // Quake movement
-        Update.movement(self, dir, dt);
+        // TODO: Quake movement will be implemented with generic data access
 
-        // Crouch handling - elegant duel style
-        const want_crouch = keys.crouch();
-
-        if (self.crouch and !want_crouch) {
-            // Trying to stand up - check if there's space
-            const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
-            const test_pos = Vec.new(self.pos.data[0], self.pos.data[1] + height_diff, self.pos.data[2]);
-            const standing_box = BBox{
-                .min = Vec.new(-cfg.size.width, -cfg.size.stand / 2.0, -cfg.size.width),
-                .max = Vec.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
-            };
-
-            if (!checkStatic(world, standing_box.at(test_pos))) {
-                self.pos.data[1] += height_diff;
-                self.crouch = false;
-            }
-        } else {
-            self.crouch = want_crouch;
-        }
-
-        // Jump
-        if (keys.jump() and self.ground) {
-            self.vel.data[1] = cfg.jump_power;
-            self.ground = false;
-            audio.jump();
-        }
-
-        // Physics
-        Update.physics(self, world, audio, dt);
+        // TODO: All physics interactions will be implemented with generic data access
     }
 
     pub const Update = struct {
@@ -161,10 +136,13 @@ pub const Player = struct {
         return .{ .data = .{ cy, sy * sp, -sy * cp, 0, 0, cp, sp, 0, sy, -cy * sp, cy * cp, 0, -x * cy - z * sy, -x * sy * sp - y * cp + z * cy * sp, x * sy * cp - y * sp - z * cy * cp, 1 } };
     }
 
-    pub fn mouse(self: *Player, dx: f32, dy: f32) void {
-        const sensitivity = 0.008;
-        self.yaw += dx * sensitivity;
-        self.pitch = @max(-cfg.pitch_limit, @min(cfg.pitch_limit, self.pitch + dy * sensitivity));
+    pub fn event(self: *Player, e: anytype) void {
+        // Handle mouse events
+        if (e.type == .MOUSE_MOVE) {
+            const sensitivity = 0.008;
+            self.yaw += e.mouse_dx * sensitivity;
+            self.pitch = @max(-cfg.pitch_limit, @min(cfg.pitch_limit, self.pitch + e.mouse_dy * sensitivity));
+        }
     }
 };
 

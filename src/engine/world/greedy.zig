@@ -19,12 +19,10 @@ pub const World = struct {
         // Try to load map.dat, fallback to default world
         w.load(allocator, "map.dat") catch {
             // Generate simple world: floor + walls
-
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
                 if ((is_wall and y <= 2) or is_floor) {
-                    // Use the proper setBit method after world is initialized
                     const x_u32: u32 = @intCast(x);
                     const y_u32: u32 = @intCast(y);
                     const z_u32: u32 = @intCast(z);
@@ -42,6 +40,16 @@ pub const World = struct {
 
     pub fn deinit(self: *const World, allocator: std.mem.Allocator) void {
         self.save(allocator, "map.dat") catch {};
+    }
+
+    pub fn tick(self: *World, dt: f32) void {
+        _ = self;
+        _ = dt;
+    }
+
+    pub fn event(self: *World, e: anytype) void {
+        _ = self;
+        _ = e;
     }
 
     inline fn setBit(self: *World, x: u32, y: u32, z: u32, value: bool) void {
