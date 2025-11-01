@@ -1,44 +1,30 @@
-// 64x64x64 greedy meshed world - adapted from duel
+// Ultra-minimalist 64x64x64 bitpacked world - white cubes only
 const std = @import("std");
 const math = @import("../lib/math.zig");
 
 const SIZE = 64;
-pub const Block = u8;
+const BITS_PER_U64 = 64;
+const CHUNKS_PER_LAYER = (SIZE * SIZE + BITS_PER_U64 - 1) / BITS_PER_U64;
 
-// HSV to RGB conversion for block colors
-inline fn hsvToRgb(h: f32, s: f32, v: f32) [3]f32 {
-    const c = v * s;
-    const x = c * (1.0 - @abs(@mod(h / 60.0, 2.0) - 1.0));
-    const m = v - c;
-    const rgb = if (h < 60.0) [3]f32{ c, x, 0 } else if (h < 120.0) [3]f32{ x, c, 0 } else if (h < 180.0) [3]f32{ 0, c, x } else if (h < 240.0) [3]f32{ 0, x, c } else if (h < 300.0) [3]f32{ x, 0, c } else [3]f32{ c, 0, x };
-    return .{ rgb[0] + m, rgb[1] + m, rgb[2] + m };
-}
-
-fn blockColor(block: Block) [3]f32 {
-    if (block == 0) return .{ 0, 0, 0 }; // air
-    if (block == 1) return .{ 0, 0, 0 }; // black
-    if (block == 2) return .{ 1, 1, 1 }; // white
-
-    // Bit-packed HSV: 32 hues, 4 saturations, 2 values
-    const hue = @as(f32, @floatFromInt(block & 0x1F)) * 360.0 / 32.0;
-    const sat = 0.25 + @as(f32, @floatFromInt((block >> 5) & 0x03)) * 0.25;
-    const val = 0.4 + @as(f32, @floatFromInt((block >> 7) & 0x01)) * 0.6;
-    return hsvToRgb(hue, sat, val);
-}
+// Single bit per block - 0=air, 1=solid white cube
+pub const Block = bool;
 
 pub const World = struct {
-    blocks: [SIZE][SIZE][SIZE]Block,
+    // Bitpacked storage: each u64 holds 64 blocks
+    data: [SIZE][CHUNKS_PER_LAYER]u64,
 
     pub fn init(allocator: std.mem.Allocator) World {
-        var w = World{ .blocks = [_][SIZE][SIZE]Block{[_][SIZE]Block{[_]Block{0} ** SIZE} ** SIZE} ** SIZE };
+        var w = World{ .data = [_][CHUNKS_PER_LAYER]u64{[_]u64{0} ** CHUNKS_PER_LAYER} ** SIZE };
 
-        // Try to load map.dat, fallback to default world if it doesn't exist
+        // Try to load map.dat, fallback to default world
         w.load(allocator, "map.dat") catch {
             // Generate simple world: floor + walls
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
-                w.blocks[x][y][z] = if ((is_wall and y <= 2) or is_floor) 2 else 0;
+                if ((is_wall and y <= 2) or is_floor) {
+                    w.setBit(@intCast(x), @intCast(y), @intCast(z), true);
+                }
             };
         };
         return w;
@@ -48,88 +34,58 @@ pub const World = struct {
         self.save(allocator, "map.dat") catch {};
     }
 
+    inline fn setBit(self: *World, x: u32, y: u32, z: u32, value: bool) void {
+        const idx = y * SIZE + z;
+        const chunk_idx = idx / BITS_PER_U64;
+        const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
+        const mask = @as(u64, 1) << bit_idx;
+
+        if (value) {
+            self.data[x][chunk_idx] |= mask;
+        } else {
+            self.data[x][chunk_idx] &= ~mask;
+        }
+    }
+
+    inline fn getBit(self: *const World, x: u32, y: u32, z: u32) bool {
+        const idx = y * SIZE + z;
+        const chunk_idx = idx / BITS_PER_U64;
+        const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
+        const mask = @as(u64, 1) << bit_idx;
+        return (self.data[x][chunk_idx] & mask) != 0;
+    }
+
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
         if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return false;
-        return self.blocks[@intCast(x)][@intCast(y)][@intCast(z)] != 0;
+        return self.getBit(@intCast(x), @intCast(y), @intCast(z));
     }
 
-    fn getBlock(self: *const World, x: i32, y: i32, z: i32) Block {
-        if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return 0;
-        return self.blocks[@intCast(x)][@intCast(y)][@intCast(z)];
-    }
-
-    pub fn set(self: *World, x: i32, y: i32, z: i32, block: Block) bool {
+    pub fn set(self: *World, x: i32, y: i32, z: i32, block: bool) bool {
         if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return false;
-        const old_block = self.blocks[@intCast(x)][@intCast(y)][@intCast(z)];
-        if (old_block == block) return false;
-        self.blocks[@intCast(x)][@intCast(y)][@intCast(z)] = block;
+        const old = self.getBit(@intCast(x), @intCast(y), @intCast(z));
+        if (old == block) return false;
+        self.setBit(@intCast(x), @intCast(y), @intCast(z), block);
         return true;
     }
 
-    // Binary RLE save
+    // Direct binary save - just dump the bitpacked data
     pub fn save(self: *const World, allocator: std.mem.Allocator, path: []const u8) !void {
-        const compressed = try allocator.alloc(u8, SIZE * SIZE * SIZE * 2);
-        defer allocator.free(compressed);
-
-        var write_pos: usize = 0;
-        var current_block = self.blocks[0][0][0];
-        var run_length: u8 = 1;
-
-        for (0..SIZE) |x| {
-            for (0..SIZE) |y| {
-                for (0..SIZE) |z| {
-                    if (x == 0 and y == 0 and z == 0) continue;
-
-                    const block = self.blocks[x][y][z];
-                    if (block == current_block and run_length < 255) {
-                        run_length += 1;
-                    } else {
-                        compressed[write_pos] = run_length;
-                        compressed[write_pos + 1] = current_block;
-                        write_pos += 2;
-                        current_block = block;
-                        run_length = 1;
-                    }
-                }
-            }
-        }
-
-        compressed[write_pos] = run_length;
-        compressed[write_pos + 1] = current_block;
-        write_pos += 2;
-
+        _ = allocator;
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        try file.writeAll(compressed[0..write_pos]);
+
+        const bytes = std.mem.asBytes(&self.data);
+        try file.writeAll(bytes);
     }
 
-    // Binary RLE load
+    // Direct binary load
     pub fn load(self: *World, allocator: std.mem.Allocator, path: []const u8) !void {
+        _ = allocator;
         const file = std.fs.cwd().openFile(path, .{}) catch return;
         defer file.close();
 
-        const data = try file.readToEndAlloc(allocator, SIZE * SIZE * SIZE * 2);
-        defer allocator.free(data);
-
-        self.blocks = [_][SIZE][SIZE]Block{[_][SIZE]Block{[_]Block{0} ** SIZE} ** SIZE} ** SIZE;
-
-        var read_pos: usize = 0;
-        var block_pos: usize = 0;
-
-        while (read_pos + 1 < data.len and block_pos < SIZE * SIZE * SIZE) {
-            const run_length = data[read_pos];
-            const block_value = data[read_pos + 1];
-            read_pos += 2;
-
-            for (0..run_length) |_| {
-                if (block_pos >= SIZE * SIZE * SIZE) break;
-                const x = block_pos / (SIZE * SIZE);
-                const y = (block_pos % (SIZE * SIZE)) / SIZE;
-                const z = block_pos % SIZE;
-                self.blocks[x][y][z] = block_value;
-                block_pos += 1;
-            }
-        }
+        const bytes = std.mem.asBytes(&self.data);
+        _ = try file.readAll(bytes);
     }
 
     pub fn mesh(self: *const World, vertices: []math.Vertex, indices: []u16) math.Mesh {
@@ -153,10 +109,10 @@ pub const World = struct {
     }
 };
 
-const FaceInfo = struct { block: Block, is_back: bool };
+const FaceInfo = struct { block: bool, is_back: bool };
 
 fn buildFaceMask(w: *const World, mask: *[SIZE * SIZE]FaceInfo, axis: usize, u: usize, v: usize, d: i32) void {
-    @memset(mask, .{ .block = 0, .is_back = false });
+    @memset(mask, .{ .block = false, .is_back = false });
 
     for (0..SIZE) |j| for (0..SIZE) |i| {
         var pos1 = [3]i32{ 0, 0, 0 };
@@ -168,13 +124,13 @@ fn buildFaceMask(w: *const World, mask: *[SIZE * SIZE]FaceInfo, axis: usize, u: 
         pos2[u] = @intCast(i);
         pos2[v] = @intCast(j);
 
-        const b1 = w.getBlock(pos1[0], pos1[1], pos1[2]);
-        const b2 = w.getBlock(pos2[0], pos2[1], pos2[2]);
+        const b1 = w.get(pos1[0], pos1[1], pos1[2]);
+        const b2 = w.get(pos2[0], pos2[1], pos2[2]);
 
-        if (b1 != 0 and b2 == 0) {
-            mask[j * SIZE + i] = .{ .block = b1, .is_back = false };
-        } else if (b1 == 0 and b2 != 0) {
-            mask[j * SIZE + i] = .{ .block = b2, .is_back = true };
+        if (b1 and !b2) {
+            mask[j * SIZE + i] = .{ .block = true, .is_back = false };
+        } else if (!b1 and b2) {
+            mask[j * SIZE + i] = .{ .block = true, .is_back = true };
         }
     };
 }
@@ -196,7 +152,7 @@ fn generateQuads(
         var i: usize = 0;
         while (i < SIZE) {
             const face_info = mask[j * SIZE + i];
-            if (face_info.block == 0) {
+            if (!face_info.block) {
                 i += 1;
                 continue;
             }
@@ -216,7 +172,7 @@ fn findQuadSize(mask: *[SIZE * SIZE]FaceInfo, face_info: FaceInfo, start_i: usiz
     var width: usize = 1;
     while (start_i + width < SIZE) {
         const next_face = mask[start_j * SIZE + start_i + width];
-        if (next_face.block != face_info.block or next_face.is_back != face_info.is_back) break;
+        if (!next_face.block or next_face.is_back != face_info.is_back) break;
         width += 1;
     }
 
@@ -225,7 +181,7 @@ fn findQuadSize(mask: *[SIZE * SIZE]FaceInfo, face_info: FaceInfo, start_i: usiz
         var row_matches = true;
         for (0..width) |k| {
             const check_face = mask[(start_j + height) * SIZE + start_i + k];
-            if (check_face.block != face_info.block or check_face.is_back != face_info.is_back) {
+            if (!check_face.block or check_face.is_back != face_info.is_back) {
                 row_matches = false;
                 break;
             }
@@ -239,7 +195,7 @@ fn findQuadSize(mask: *[SIZE * SIZE]FaceInfo, face_info: FaceInfo, start_i: usiz
 
 fn clearMaskArea(mask: *[SIZE * SIZE]FaceInfo, start_i: usize, start_j: usize, width: usize, height: usize) void {
     for (0..height) |h| for (0..width) |w_idx| {
-        mask[(start_j + h) * SIZE + start_i + w_idx] = .{ .block = 0, .is_back = false };
+        mask[(start_j + h) * SIZE + start_i + w_idx] = .{ .block = false, .is_back = false };
     };
 }
 
@@ -259,11 +215,11 @@ fn buildQuad(
     height: usize,
     shades: [6]f32,
 ) void {
-    const col = blockColor(face_info.block);
+    // White color with proper shading
     const shade_offset: usize = if (face_info.is_back) 0 else 1;
     const shade_idx = axis * 2 + shade_offset;
     const shade = shades[shade_idx];
-    const fcol = [4]f32{ col[0] * shade, col[1] * shade, col[2] * shade, 1 };
+    const fcol = [4]f32{ 1.0 * shade, 1.0 * shade, 1.0 * shade, 1.0 };
 
     const face_pos: f32 = @floatFromInt(d);
     var quad = [4][3]f32{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } };
