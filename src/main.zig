@@ -24,7 +24,7 @@ export fn frame() void {
 
 export fn cleanup() void {
     engine.deinit(gpa.allocator());
-    if (gpa.deinit() == .leak) std.log.err("Memory leak detected", .{});
+    _ = gpa.deinit();
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();
 }
