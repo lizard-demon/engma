@@ -1,10 +1,28 @@
 const std = @import("std");
 const math = std.math;
 
+// Vec2 for 2D operations
+pub const Vec2 = struct {
+    v: @Vector(2, f32),
+
+    pub fn init(x: f32, y: f32) Vec2 {
+        return .{ .v = .{ x, y } };
+    }
+
+    pub fn zero() Vec2 {
+        return .{ .v = @splat(0.0) };
+    }
+};
+
+// Vec3 for 3D operations
 pub const Vec3 = struct {
     v: @Vector(3, f32),
 
     pub fn init(x: f32, y: f32, z: f32) Vec3 {
+        return .{ .v = .{ x, y, z } };
+    }
+
+    pub fn new(x: f32, y: f32, z: f32) Vec3 {
         return .{ .v = .{ x, y, z } };
     }
 
@@ -50,6 +68,10 @@ pub const Vec3 = struct {
     }
 };
 
+// Type aliases for compatibility
+pub const Vec = Vec3;
+pub const Mat = Mat4;
+
 pub const Mat4 = struct {
     m: [16]f32,
 
@@ -91,6 +113,29 @@ pub const Mat4 = struct {
         m.m[10] = v.v[2];
         return m;
     }
+
+    // Create from data array for compatibility
+    pub fn fromData(data: [16]f32) Mat4 {
+        return .{ .m = data };
+    }
+};
+
+// Box type for collision detection
+pub const Box = struct {
+    min: Vec3,
+    max: Vec3,
+};
+
+// Vertex type for rendering
+pub const Vertex = struct {
+    pos: [3]f32,
+    col: [4]f32,
+};
+
+// Mesh type for rendering
+pub const Mesh = struct {
+    vertices: []const Vertex,
+    indices: []const u16,
 };
 
 pub fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) Mat4 {

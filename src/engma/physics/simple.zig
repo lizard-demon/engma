@@ -3,8 +3,8 @@ const std = @import("std");
 const math = @import("../lib/math.zig");
 
 pub const Player = struct {
-    pos: math.Vec,
-    vel: math.Vec,
+    pos: math.Vec3,
+    vel: math.Vec3,
     yaw: f32,
     pitch: f32,
     ground: bool,
@@ -12,13 +12,13 @@ pub const Player = struct {
 
     mx: f32,
     my: f32,
-    size: math.Vec,
+    size: math.Vec3,
 
     pub fn init(allocator: std.mem.Allocator) Player {
         _ = allocator;
         return .{
-            .pos = math.Vec.new(2, 3, 2),
-            .vel = math.Vec.zero(),
+            .pos = math.Vec3.new(2, 3, 2),
+            .vel = math.Vec3.zero(),
             .yaw = 0,
             .pitch = 0,
             .ground = false,
@@ -26,7 +26,7 @@ pub const Player = struct {
 
             .mx = 0,
             .my = 0,
-            .size = math.Vec.new(0.8, 1.6, 0.8), // width, height, depth
+            .size = math.Vec3.new(0.8, 1.6, 0.8), // width, height, depth
         };
     }
 
@@ -71,25 +71,25 @@ pub const Player = struct {
     }
 
     pub fn box(self: *const Player) math.Box {
-        const half = math.Vec.scale(self.size, 0.5);
-        return .{ .min = math.Vec.sub(self.pos, half), .max = math.Vec.add(self.pos, half) };
+        const half = math.Vec3.scale(self.size, 0.5);
+        return .{ .min = math.Vec3.sub(self.pos, half), .max = math.Vec3.add(self.pos, half) };
     }
 
-    pub fn view(self: *const Player) math.Mat {
+    pub fn view(self: *const Player) math.Mat4 {
         const cy, const sy = .{ @cos(self.yaw), @sin(self.yaw) };
         const cp, const sp = .{ @cos(self.pitch), @sin(self.pitch) };
 
-        const forward = math.Vec.new(sy * cp, -sp, -cy * cp);
-        const right = math.Vec.new(cy, 0, sy);
-        const up = math.Vec.new(-sy * sp, -cp, cy * sp);
+        const forward = math.Vec3.new(sy * cp, -sp, -cy * cp);
+        const right = math.Vec3.new(cy, 0, sy);
+        const up = math.Vec3.new(-sy * sp, -cp, cy * sp);
 
         const eye = self.pos;
 
-        return .{ .data = .{
-            right.data[0],             up.data[0],             -forward.data[0],           0,
-            right.data[1],             up.data[1],             -forward.data[1],           0,
-            right.data[2],             up.data[2],             -forward.data[2],           0,
-            -math.Vec.dot(right, eye), -math.Vec.dot(up, eye), math.Vec.dot(forward, eye), 1,
+        return .{ .m = .{
+            right.v[0],                 up.v[0],                 -forward.v[0],               0,
+            right.v[1],                 up.v[1],                 -forward.v[1],               0,
+            right.v[2],                 up.v[2],                 -forward.v[2],               0,
+            -math.Vec3.dot(right, eye), -math.Vec3.dot(up, eye), math.Vec3.dot(forward, eye), 1,
         } };
     }
 };

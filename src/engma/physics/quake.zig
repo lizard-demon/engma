@@ -3,12 +3,12 @@ const std = @import("std");
 const math = @import("../lib/math.zig");
 const sokol = @import("sokol");
 
-const Vec = math.Vec;
-const Mat = math.Mat;
+const Vec3 = math.Vec3;
+const Mat4 = math.Mat4;
 
 pub const Player = struct {
-    pos: Vec,
-    vel: Vec,
+    pos: Vec3,
+    vel: Vec3,
     yaw: f32,
     pitch: f32,
     ground: bool,
@@ -44,8 +44,8 @@ pub const Player = struct {
     pub fn init(allocator: std.mem.Allocator) Player {
         _ = allocator;
         return .{
-            .pos = Vec.new(2.0, 2.0, 2.0),
-            .vel = Vec.zero(),
+            .pos = Vec3.new(2.0, 2.0, 2.0),
+            .vel = Vec3.zero(),
             .yaw = std.math.pi,
             .pitch = 0.0,
             .ground = false,
@@ -68,12 +68,12 @@ pub const Player = struct {
     // Complete Quake movement system - called by engine with all needed data
     pub fn handleMovement(self: *Player, keys: anytype, world: anytype, audio: anytype, dt: f32) void {
         // Movement input - convert WASD to movement vector
-        var dir = Vec.zero();
+        var dir = Vec3.zero();
         const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
         const st: f32 = if (keys.right()) 1 else if (keys.left()) -1 else 0;
 
-        if (st != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
-        if (fw != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
+        if (st != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
+        if (fw != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
 
         // Quake movement
         Update.movement(self, dir, dt);
@@ -83,14 +83,14 @@ pub const Player = struct {
         if (self.crouch and !want_crouch) {
             // Trying to stand up - check if there's space
             const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
-            const test_pos = Vec.new(self.pos.data[0], self.pos.data[1] + height_diff, self.pos.data[2]);
+            const test_pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
             const standing_box = BBox{
-                .min = Vec.new(-cfg.size.width, -cfg.size.stand / 2.0, -cfg.size.width),
-                .max = Vec.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
+                .min = Vec3.new(-cfg.size.width, -cfg.size.stand / 2.0, -cfg.size.width),
+                .max = Vec3.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
             };
 
             if (!checkStatic(world, standing_box.at(test_pos))) {
-                self.pos.data[1] += height_diff;
+                self.pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
                 self.crouch = false;
             }
         } else {
@@ -99,7 +99,7 @@ pub const Player = struct {
 
         // Jump
         if (keys.jump() and self.ground) {
-            self.vel.data[1] = cfg.jump_power;
+            self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
             audio.jump();
         }
@@ -109,71 +109,69 @@ pub const Player = struct {
     }
 
     pub const Update = struct {
-        pub fn movement(self: *Player, dir: Vec, dt: f32) void {
-            const len = @sqrt(dir.data[0] * dir.data[0] + dir.data[2] * dir.data[2]);
+        pub fn movement(self: *Player, dir: Vec3, dt: f32) void {
+            const len = @sqrt(dir.v[0] * dir.v[0] + dir.v[2] * dir.v[2]);
             if (len < cfg.move.min_len) {
                 if (self.ground) Update.friction(self, dt);
                 return;
             }
 
-            const wish = Vec.new(dir.data[0] / len, 0.0, dir.data[2] / len);
+            const wish = Vec3.new(dir.v[0] / len, 0.0, dir.v[2] / len);
             const base_speed: f32 = if (self.crouch) cfg.move.crouch_speed else cfg.move.speed;
             const max = if (self.ground) base_speed * len else @min(base_speed * len, cfg.move.air_cap);
-            const add = @max(0.0, max - Vec.dot(self.vel, wish));
+            const add = @max(0.0, max - Vec3.dot(self.vel, wish));
 
             if (add > 0.0) {
-                self.vel = Vec.add(self.vel, Vec.scale(wish, @min(cfg.move.accel * dt, add)));
+                self.vel = Vec3.add(self.vel, Vec3.scale(wish, @min(cfg.move.accel * dt, add)));
             }
 
             if (self.ground) Update.friction(self, dt);
         }
 
         pub fn friction(self: *Player, dt: f32) void {
-            const s = @sqrt(self.vel.data[0] * self.vel.data[0] + self.vel.data[2] * self.vel.data[2]);
+            const s = @sqrt(self.vel.v[0] * self.vel.v[0] + self.vel.v[2] * self.vel.v[2]);
             if (s < cfg.friction.min_speed) {
-                self.vel.data[0] = 0.0;
-                self.vel.data[2] = 0.0;
+                self.vel = Vec3.new(0.0, self.vel.v[1], 0.0);
                 return;
             }
             const f = @max(0.0, s - @max(s, cfg.friction.min_speed) * cfg.friction.factor * dt) / s;
-            self.vel.data[0] *= f;
-            self.vel.data[2] *= f;
+            self.vel = Vec3.new(self.vel.v[0] * f, self.vel.v[1], self.vel.v[2] * f);
         }
 
         pub fn physics(self: *Player, world: anytype, audio: anytype, dt: f32) void {
-            self.vel.data[1] -= cfg.phys.gravity * dt;
+            self.vel = Vec3.new(self.vel.v[0], self.vel.v[1] - cfg.phys.gravity * dt, self.vel.v[2]);
 
             const h: f32 = if (self.crouch) cfg.size.crouch else cfg.size.stand;
             const box = BBox{
-                .min = Vec.new(-cfg.size.width, -h / 2.0, -cfg.size.width),
-                .max = Vec.new(cfg.size.width, h / 2.0, cfg.size.width),
+                .min = Vec3.new(-cfg.size.width, -h / 2.0, -cfg.size.width),
+                .max = Vec3.new(cfg.size.width, h / 2.0, cfg.size.width),
             };
 
-            const r = sweep(world, self.pos, box, Vec.scale(self.vel, dt), cfg.phys.steps);
+            const r = sweep(world, self.pos, box, Vec3.scale(self.vel, dt), cfg.phys.steps);
             self.pos = r.pos;
-            self.vel = Vec.scale(r.vel, 1 / dt);
+            self.vel = Vec3.scale(r.vel, 1 / dt);
 
             self.prev_ground = self.ground;
-            self.ground = r.hit and @abs(r.vel.data[1]) < cfg.phys.ground_thresh;
+            self.ground = r.hit and @abs(r.vel.v[1]) < cfg.phys.ground_thresh;
 
             // Landing sound
-            if (self.ground and !self.prev_ground and self.vel.data[1] < -2.0) {
+            if (self.ground and !self.prev_ground and self.vel.v[1] < -2.0) {
                 audio.land();
             }
 
             // Boundary check - reset if out of bounds
-            if (self.pos.data[1] < 0.0 or self.pos.data[1] > 64.0) {
-                self.pos = Vec.new(2.0, 2.0, 2.0);
+            if (self.pos.v[1] < 0.0 or self.pos.v[1] > 64.0) {
+                self.pos = Vec3.new(2.0, 2.0, 2.0);
             }
         }
     };
 
-    pub fn view(self: *Player) Mat {
+    pub fn view(self: *Player) Mat4 {
         const cy, const sy = .{ @cos(self.yaw), @sin(self.yaw) };
         const cp, const sp = .{ @cos(self.pitch), @sin(self.pitch) };
-        const x, const y, const z = .{ self.pos.data[0], self.pos.data[1], self.pos.data[2] };
+        const x, const y, const z = .{ self.pos.v[0], self.pos.v[1], self.pos.v[2] };
 
-        return .{ .data = .{ cy, sy * sp, -sy * cp, 0, 0, cp, sp, 0, sy, -cy * sp, cy * cp, 0, -x * cy - z * sy, -x * sy * sp - y * cp + z * cy * sp, x * sy * cp - y * sp - z * cy * cp, 1 } };
+        return .{ .m = .{ cy, sy * sp, -sy * cp, 0, 0, cp, sp, 0, sy, -cy * sp, cy * cp, 0, -x * cy - z * sy, -x * sy * sp - y * cp + z * cy * sp, x * sy * cp - y * sp - z * cy * cp, 1 } };
     }
 
     pub fn event(self: *Player, e: anytype) void {
@@ -188,27 +186,27 @@ pub const Player = struct {
 
 // Collision system
 const BBox = struct {
-    min: Vec,
-    max: Vec,
+    min: Vec3,
+    max: Vec3,
 
-    fn at(self: BBox, pos: Vec) BBox {
-        return .{ .min = Vec.add(pos, self.min), .max = Vec.add(pos, self.max) };
+    fn at(self: BBox, pos: Vec3) BBox {
+        return .{ .min = Vec3.add(pos, self.min), .max = Vec3.add(pos, self.max) };
     }
 
-    fn bounds(self: BBox, vel: Vec) struct { min: Vec, max: Vec } {
-        const sm = Vec.add(self.min, vel);
-        const sx = Vec.add(self.max, vel);
-        return .{ .min = Vec.new(@min(sm.data[0], self.min.data[0]), @min(sm.data[1], self.min.data[1]), @min(sm.data[2], self.min.data[2])), .max = Vec.new(@max(sx.data[0], self.max.data[0]), @max(sx.data[1], self.max.data[1]), @max(sx.data[2], self.max.data[2])) };
+    fn bounds(self: BBox, vel: Vec3) struct { min: Vec3, max: Vec3 } {
+        const sm = Vec3.add(self.min, vel);
+        const sx = Vec3.add(self.max, vel);
+        return .{ .min = Vec3.new(@min(sm.v[0], self.min.v[0]), @min(sm.v[1], self.min.v[1]), @min(sm.v[2], self.min.v[2])), .max = Vec3.new(@max(sx.v[0], self.max.v[0]), @max(sx.v[1], self.max.v[1]), @max(sx.v[2], self.max.v[2])) };
     }
 
-    fn sweep(self: BBox, vel: Vec, other: BBox) ?struct { t: f32, n: Vec } {
-        if (@sqrt(Vec.dot(vel, vel)) < 0.0001) return null;
+    fn sweep(self: BBox, vel: Vec3, other: BBox) ?struct { t: f32, n: Vec3 } {
+        if (@sqrt(Vec3.dot(vel, vel)) < 0.0001) return null;
 
-        const inv = Vec.new(if (vel.data[0] != 0) 1 / vel.data[0] else std.math.inf(f32), if (vel.data[1] != 0) 1 / vel.data[1] else std.math.inf(f32), if (vel.data[2] != 0) 1 / vel.data[2] else std.math.inf(f32));
+        const inv = Vec3.new(if (vel.v[0] != 0) 1 / vel.v[0] else std.math.inf(f32), if (vel.v[1] != 0) 1 / vel.v[1] else std.math.inf(f32), if (vel.v[2] != 0) 1 / vel.v[2] else std.math.inf(f32));
 
-        const tx = axis(self.min.data[0], self.max.data[0], other.min.data[0], other.max.data[0], inv.data[0]);
-        const ty = axis(self.min.data[1], self.max.data[1], other.min.data[1], other.max.data[1], inv.data[1]);
-        const tz = axis(self.min.data[2], self.max.data[2], other.min.data[2], other.max.data[2], inv.data[2]);
+        const tx = axis(self.min.v[0], self.max.v[0], other.min.v[0], other.max.v[0], inv.v[0]);
+        const ty = axis(self.min.v[1], self.max.v[1], other.min.v[1], other.max.v[1], inv.v[1]);
+        const tz = axis(self.min.v[2], self.max.v[2], other.min.v[2], other.max.v[2], inv.v[2]);
 
         const enter = @max(@max(tx.enter, ty.enter), tz.enter);
         const exit = @min(@min(tx.exit, ty.exit), tz.exit);
@@ -216,11 +214,11 @@ const BBox = struct {
         if (enter > exit or enter > 1 or exit < 0 or enter < 0) return null;
 
         const n = if (tx.enter > ty.enter and tx.enter > tz.enter)
-            Vec.new(if (vel.data[0] > 0) -1 else 1, 0, 0)
+            Vec3.new(if (vel.v[0] > 0) -1 else 1, 0, 0)
         else if (ty.enter > tz.enter)
-            Vec.new(0, if (vel.data[1] > 0) -1 else 1, 0)
+            Vec3.new(0, if (vel.v[1] > 0) -1 else 1, 0)
         else
-            Vec.new(0, 0, if (vel.data[2] > 0) -1 else 1);
+            Vec3.new(0, 0, if (vel.v[2] > 0) -1 else 1);
 
         return .{ .t = enter, .n = n };
     }
@@ -232,23 +230,23 @@ const BBox = struct {
     }
 };
 
-fn sweep(world: anytype, pos: Vec, box: BBox, vel: Vec, comptime steps: comptime_int) struct { pos: Vec, vel: Vec, hit: bool } {
+fn sweep(world: anytype, pos: Vec3, box: BBox, vel: Vec3, comptime steps: comptime_int) struct { pos: Vec3, vel: Vec3, hit: bool } {
     var p = pos;
     var v = vel;
     var hit = false;
     const dt: f32 = 1.0 / @as(f32, @floatFromInt(steps));
 
     inline for (0..steps) |_| {
-        const r = step(world, p, box, Vec.scale(v, dt));
+        const r = step(world, p, box, Vec3.scale(v, dt));
         p = r.pos;
-        v = Vec.scale(r.vel, 1 / dt);
+        v = Vec3.scale(r.vel, 1 / dt);
         if (r.hit) hit = true;
     }
 
     return .{ .pos = p, .vel = v, .hit = hit };
 }
 
-fn step(world: anytype, pos: Vec, box: BBox, vel: Vec) struct { pos: Vec, vel: Vec, hit: bool } {
+fn step(world: anytype, pos: Vec3, box: BBox, vel: Vec3) struct { pos: Vec3, vel: Vec3, hit: bool } {
     var p = pos;
     var v = vel;
     var hit = false;
@@ -257,15 +255,15 @@ fn step(world: anytype, pos: Vec, box: BBox, vel: Vec) struct { pos: Vec, vel: V
         const pl = box.at(p);
         const rg = pl.bounds(v);
         var c: f32 = 1;
-        var n = Vec.zero();
+        var n = Vec3.zero();
         var found = false;
 
-        const min_x = @as(i32, @intFromFloat(@floor(rg.min.data[0])));
-        const max_x = @as(i32, @intFromFloat(@floor(rg.max.data[0])));
-        const min_y = @as(i32, @intFromFloat(@floor(rg.min.data[1])));
-        const max_y = @as(i32, @intFromFloat(@floor(rg.max.data[1])));
-        const min_z = @as(i32, @intFromFloat(@floor(rg.min.data[2])));
-        const max_z = @as(i32, @intFromFloat(@floor(rg.max.data[2])));
+        const min_x = @as(i32, @intFromFloat(@floor(rg.min.v[0])));
+        const max_x = @as(i32, @intFromFloat(@floor(rg.max.v[0])));
+        const min_y = @as(i32, @intFromFloat(@floor(rg.min.v[1])));
+        const max_y = @as(i32, @intFromFloat(@floor(rg.max.v[1])));
+        const min_z = @as(i32, @intFromFloat(@floor(rg.min.v[2])));
+        const max_z = @as(i32, @intFromFloat(@floor(rg.max.v[2])));
 
         var x = min_x;
         while (x <= max_x) : (x += 1) {
@@ -275,8 +273,8 @@ fn step(world: anytype, pos: Vec, box: BBox, vel: Vec) struct { pos: Vec, vel: V
                 while (z <= max_z) : (z += 1) {
                     if (!world.get(x, y, z)) continue;
 
-                    const b = Vec.new(@as(f32, @floatFromInt(x)), @as(f32, @floatFromInt(y)), @as(f32, @floatFromInt(z)));
-                    const block_box = BBox{ .min = b, .max = Vec.add(b, Vec.new(1, 1, 1)) };
+                    const b = Vec3.new(@as(f32, @floatFromInt(x)), @as(f32, @floatFromInt(y)), @as(f32, @floatFromInt(z)));
+                    const block_box = BBox{ .min = b, .max = Vec3.add(b, Vec3.new(1, 1, 1)) };
 
                     if (pl.sweep(v, block_box)) |col| {
                         if (col.t < c) {
@@ -290,27 +288,27 @@ fn step(world: anytype, pos: Vec, box: BBox, vel: Vec) struct { pos: Vec, vel: V
         }
 
         if (!found) {
-            p = Vec.add(p, v);
+            p = Vec3.add(p, v);
             break;
         }
 
         hit = true;
-        p = Vec.add(p, Vec.scale(v, @max(0, c - 0.01)));
-        const d = Vec.dot(n, v);
-        v = Vec.sub(v, Vec.scale(n, d));
+        p = Vec3.add(p, Vec3.scale(v, @max(0, c - 0.01)));
+        const d = Vec3.dot(n, v);
+        v = Vec3.sub(v, Vec3.scale(n, d));
 
-        if (@sqrt(Vec.dot(v, v)) < 0.0001) break;
+        if (@sqrt(Vec3.dot(v, v)) < 0.0001) break;
     }
 
     return .{ .pos = p, .vel = v, .hit = hit };
 }
 fn checkStatic(world: anytype, aabb: BBox) bool {
-    const min_x = @as(i32, @intFromFloat(@floor(aabb.min.data[0])));
-    const max_x = @as(i32, @intFromFloat(@floor(aabb.max.data[0])));
-    const min_y = @as(i32, @intFromFloat(@floor(aabb.min.data[1])));
-    const max_y = @as(i32, @intFromFloat(@floor(aabb.max.data[1])));
-    const min_z = @as(i32, @intFromFloat(@floor(aabb.min.data[2])));
-    const max_z = @as(i32, @intFromFloat(@floor(aabb.max.data[2])));
+    const min_x = @as(i32, @intFromFloat(@floor(aabb.min.v[0])));
+    const max_x = @as(i32, @intFromFloat(@floor(aabb.max.v[0])));
+    const min_y = @as(i32, @intFromFloat(@floor(aabb.min.v[1])));
+    const max_y = @as(i32, @intFromFloat(@floor(aabb.max.v[1])));
+    const min_z = @as(i32, @intFromFloat(@floor(aabb.min.v[2])));
+    const max_z = @as(i32, @intFromFloat(@floor(aabb.max.v[2])));
 
     var x = min_x;
     while (x <= max_x) : (x += 1) {

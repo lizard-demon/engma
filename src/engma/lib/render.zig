@@ -15,7 +15,7 @@ pub fn Gfx(comptime ShaderType: type) type {
         bind: sg.Bindings,
         pass: sg.PassAction,
         count: u32,
-        proj: math.Mat,
+        proj: math.Mat4,
         shader: sg.Shader,
 
         pub fn init(allocator: std.mem.Allocator) Self {
@@ -59,7 +59,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             _ = e;
         }
 
-        pub fn draw(self: *Self, world: anytype, view: math.Mat) void {
+        pub fn draw(self: *Self, world: anytype, view: math.Mat4) void {
             if (self.count == 0) {
                 // Clean up any existing resources first
                 self.deinit_resources();
@@ -78,8 +78,8 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.applyPipeline(self.pipe);
             sg.applyBindings(self.bind);
 
-            // Use modern Mat4 type for uniforms
-            const mvp_mat4 = math.Mat4.fromMat(math.Mat.mul(self.proj, view));
+            // Use Mat4 type for uniforms
+            const mvp_mat4 = math.Mat4.mul(self.proj, view);
             sg.applyUniforms(0, sg.asRange(&mvp_mat4));
             sg.draw(0, self.count, 1);
 
