@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) !void {
 
     // Convenience web build command
     const web = b.step("web", "Build for web (WASM)");
-    const web_build = b.addSystemCommand(&.{ "zig", "build", "-Dtarget=wasm32-emscripten" });
+    const web_build = b.addSystemCommand(&.{ "zig", "build", "-Dtarget=wasm32-emscripten", "-Doptimize=ReleaseFast" });
     web.dependOn(&web_build.step);
 }
 
