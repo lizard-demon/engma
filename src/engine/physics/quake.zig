@@ -145,6 +145,11 @@ pub const Player = struct {
             if (self.ground and !self.prev_ground and self.vel.data[1] < -2.0) {
                 audio.land();
             }
+
+            // Boundary check - reset if out of bounds
+            if (self.pos.data[1] < 0.0 or self.pos.data[1] > 64.0) {
+                self.pos = Vec.new(2.0, 2.0, 2.0);
+            }
         }
     };
 
