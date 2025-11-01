@@ -1,4 +1,3 @@
-// Keyboard input - packed state machine
 const std = @import("std");
 const sokol = @import("sokol");
 
@@ -6,20 +5,12 @@ pub const Keys = struct {
     bits: packed struct { w: bool = false, a: bool = false, s: bool = false, d: bool = false, space: bool = false, ctrl: bool = false },
     locked: bool = false,
 
-    pub fn init(allocator: std.mem.Allocator) Keys {
-        _ = allocator;
+    pub fn init(_: std.mem.Allocator) Keys {
         return .{ .bits = .{}, .locked = false };
     }
 
-    pub fn deinit(self: *Keys, allocator: std.mem.Allocator) void {
-        _ = self;
-        _ = allocator;
-    }
-
-    pub fn tick(self: *Keys, dt: f32) void {
-        _ = self;
-        _ = dt;
-    }
+    pub fn deinit(_: *Keys, _: std.mem.Allocator) void {}
+    pub fn tick(_: *Keys, _: f32) void {}
 
     pub fn event(self: *Keys, e: sokol.app.Event) void {
         const down = e.type == .KEY_DOWN;

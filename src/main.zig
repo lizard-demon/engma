@@ -1,5 +1,6 @@
 const std = @import("std");
 const engma = @import("engma");
+const sokol = @import("sokol");
 
 const Config = struct {
     pub const World = engma.world.greedy;
@@ -8,39 +9,32 @@ const Config = struct {
     pub const Keys = engma.lib.input;
     pub const Audio = engma.lib.audio;
 };
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var game_engine: engma.Engine(Config) = undefined;
+var engine: engma.Engine(Config) = undefined;
 
 export fn init() void {
-    const allocator = gpa.allocator();
-    game_engine = engma.Engine(Config).init(allocator);
+    engine = engma.Engine(Config).init(gpa.allocator());
 }
 
 export fn frame() void {
-    game_engine.tick();
-    game_engine.draw();
+    engine.tick();
+    engine.draw();
 }
 
 export fn cleanup() void {
-    const allocator = gpa.allocator();
-    game_engine.deinit(allocator);
-
-    if (gpa.deinit() == .leak) {
-        std.log.err("Memory leak detected", .{});
-    }
-
-    const sokol = @import("sokol");
+    engine.deinit(gpa.allocator());
+    if (gpa.deinit() == .leak) std.log.err("Memory leak detected", .{});
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();
 }
 
-export fn event(e: [*c]const @import("sokol").app.Event) void {
-    game_engine.event(e.*);
+export fn event(e: [*c]const sokol.app.Event) void {
+    engine.event(e.*);
 }
 
 pub fn main() void {
-    const sapp = @import("sokol").app;
-    sapp.run(.{
+    sokol.app.run(.{
         .init_cb = init,
         .frame_cb = frame,
         .cleanup_cb = cleanup,

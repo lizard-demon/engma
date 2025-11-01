@@ -1,4 +1,3 @@
-// Bitpacked voxel world - 4096 voxels in 512 bytes
 const std = @import("std");
 const math = @import("../lib/math.zig");
 
@@ -7,11 +6,8 @@ const SIZE = 16;
 pub const World = struct {
     bits: [SIZE * SIZE * SIZE / 8]u8,
 
-    pub fn init(allocator: std.mem.Allocator) World {
-        _ = allocator;
+    pub fn init(_: std.mem.Allocator) World {
         var w = World{ .bits = [_]u8{0} ** (SIZE * SIZE * SIZE / 8) };
-
-        // Procedural world: floor + walls + pillars
         for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
             if (y == 0 or x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1 or
                 (x % 4 == 0 and z % 4 == 0 and y < 3))
@@ -23,20 +19,8 @@ pub const World = struct {
         return w;
     }
 
-    pub fn deinit(self: *World, allocator: std.mem.Allocator) void {
-        _ = self;
-        _ = allocator;
-    }
-
-    pub fn tick(self: *World, dt: f32) void {
-        _ = self;
-        _ = dt;
-    }
-
-    pub fn event(self: *World, e: anytype) void {
-        _ = self;
-        _ = e;
-    }
+    pub fn deinit(_: *World, _: std.mem.Allocator) void {}
+    pub fn tick(_: *World, _: f32) void {}
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
         if (@as(u32, @bitCast(x | y | z)) >= SIZE) return false;
@@ -48,12 +32,10 @@ pub const World = struct {
         var vc: usize = 0;
         var ic: usize = 0;
 
-        // Face dirs, quads, colors
         const dirs = [_][3]i32{ .{ 1, 0, 0 }, .{ -1, 0, 0 }, .{ 0, 1, 0 }, .{ 0, -1, 0 }, .{ 0, 0, 1 }, .{ 0, 0, -1 } };
         const quads = [_][4][3]f32{ .{ .{ 1, 0, 0 }, .{ 1, 0, 1 }, .{ 1, 1, 1 }, .{ 1, 1, 0 } }, .{ .{ 0, 0, 1 }, .{ 0, 0, 0 }, .{ 0, 1, 0 }, .{ 0, 1, 1 } }, .{ .{ 0, 1, 0 }, .{ 1, 1, 0 }, .{ 1, 1, 1 }, .{ 0, 1, 1 } }, .{ .{ 0, 0, 1 }, .{ 1, 0, 1 }, .{ 1, 0, 0 }, .{ 0, 0, 0 } }, .{ .{ 1, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 1, 1 }, .{ 1, 1, 1 } }, .{ .{ 0, 0, 0 }, .{ 1, 0, 0 }, .{ 1, 1, 0 }, .{ 0, 1, 0 } } };
         const cols = [_][4]f32{ .{ 0.8, 0.3, 0.3, 1 }, .{ 0.3, 0.8, 0.3, 1 }, .{ 0.6, 0.6, 0.6, 1 }, .{ 0.4, 0.4, 0.4, 1 }, .{ 0.3, 0.3, 0.8, 1 }, .{ 0.8, 0.8, 0.3, 1 } };
 
-        // Generate faces for each voxel
         for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
             if (!self.get(@intCast(x), @intCast(y), @intCast(z))) continue;
             const pos = @Vector(3, f32){ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z) };

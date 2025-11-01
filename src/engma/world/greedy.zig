@@ -1,4 +1,3 @@
-// Ultra-minimalist 64x64x64 bitpacked world - white cubes only
 const std = @import("std");
 const math = @import("../lib/math.zig");
 
@@ -6,32 +5,20 @@ const SIZE = 64;
 const BITS_PER_U64 = 64;
 const CHUNKS_PER_LAYER = (SIZE * SIZE + BITS_PER_U64 - 1) / BITS_PER_U64;
 
-// Single bit per block - 0=air, 1=solid white cube
-pub const Block = bool;
-
 pub const World = struct {
-    // Bitpacked storage: each u64 holds 64 blocks
     data: [SIZE][CHUNKS_PER_LAYER]u64,
 
     pub fn init(allocator: std.mem.Allocator) World {
         var w = World{ .data = [_][CHUNKS_PER_LAYER]u64{[_]u64{0} ** CHUNKS_PER_LAYER} ** SIZE };
-
-        // Try to load map.dat, fallback to default world
         w.load(allocator, "map.dat") catch {
-            // Generate simple world: floor + walls
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
                 if ((is_wall and y <= 2) or is_floor) {
-                    const x_u32: u32 = @intCast(x);
-                    const y_u32: u32 = @intCast(y);
-                    const z_u32: u32 = @intCast(z);
-
-                    const idx = y_u32 * SIZE + z_u32;
+                    const idx = y * SIZE + z;
                     const chunk_idx = idx / BITS_PER_U64;
                     const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
-                    const mask = @as(u64, 1) << bit_idx;
-                    w.data[x_u32][chunk_idx] |= mask;
+                    w.data[x][chunk_idx] |= @as(u64, 1) << bit_idx;
                 }
             };
         };
@@ -42,35 +29,13 @@ pub const World = struct {
         self.save(allocator, "map.dat") catch {};
     }
 
-    pub fn tick(self: *World, dt: f32) void {
-        _ = self;
-        _ = dt;
-    }
-
-    pub fn event(self: *World, e: anytype) void {
-        _ = self;
-        _ = e;
-    }
-
-    inline fn setBit(self: *World, x: u32, y: u32, z: u32, value: bool) void {
-        const idx = y * SIZE + z;
-        const chunk_idx = idx / BITS_PER_U64;
-        const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
-        const mask = @as(u64, 1) << bit_idx;
-
-        if (value) {
-            self.data[x][chunk_idx] |= mask;
-        } else {
-            self.data[x][chunk_idx] &= ~mask;
-        }
-    }
+    pub fn tick(_: *World, _: f32) void {}
 
     inline fn getBit(self: *const World, x: u32, y: u32, z: u32) bool {
         const idx = y * SIZE + z;
         const chunk_idx = idx / BITS_PER_U64;
         const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
-        const mask = @as(u64, 1) << bit_idx;
-        return (self.data[x][chunk_idx] & mask) != 0;
+        return (self.data[x][chunk_idx] & (@as(u64, 1) << bit_idx)) != 0;
     }
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
@@ -78,49 +43,19 @@ pub const World = struct {
         return self.getBit(@intCast(x), @intCast(y), @intCast(z));
     }
 
-    pub fn set(self: *World, x: i32, y: i32, z: i32, block: bool) bool {
-        if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return false;
-        const old = self.getBit(@intCast(x), @intCast(y), @intCast(z));
-        if (old == block) return false;
-        self.setBit(@intCast(x), @intCast(y), @intCast(z), block);
-        return true;
-    }
-
-    // Direct binary save - just dump the bitpacked data
-    pub fn save(self: *const World, allocator: std.mem.Allocator, path: []const u8) !void {
-        _ = allocator;
-        const file = std.fs.cwd().createFile(path, .{}) catch |err| switch (err) {
-            error.AccessDenied, error.PathAlreadyExists => return err,
-            else => return err,
-        };
+    pub fn save(self: *const World, _: std.mem.Allocator, path: []const u8) !void {
+        const file = std.fs.cwd().createFile(path, .{}) catch |err| return err;
         defer file.close();
-
-        const bytes = std.mem.asBytes(&self.data);
-        file.writeAll(bytes) catch |err| switch (err) {
-            error.DiskQuota, error.FileTooBig, error.NoSpaceLeft => return err,
-            else => return err,
-        };
+        file.writeAll(std.mem.asBytes(&self.data)) catch |err| return err;
     }
 
-    // Direct binary load with better error handling
-    pub fn load(self: *World, allocator: std.mem.Allocator, path: []const u8) !void {
-        _ = allocator;
+    pub fn load(self: *World, _: std.mem.Allocator, path: []const u8) !void {
         const file = std.fs.cwd().openFile(path, .{}) catch |err| switch (err) {
-            error.FileNotFound => return, // Gracefully handle missing file
-            error.AccessDenied => return err,
+            error.FileNotFound => return,
             else => return err,
         };
         defer file.close();
-
-        const bytes = std.mem.asBytes(&self.data);
-        const bytes_read = file.readAll(bytes) catch |err| switch (err) {
-            else => return err,
-        };
-
-        // Validate that we read the expected amount of data
-        if (bytes_read != bytes.len) {
-            std.log.warn("World file size mismatch: expected {}, got {}", .{ bytes.len, bytes_read });
-        }
+        _ = file.readAll(std.mem.asBytes(&self.data)) catch |err| return err;
     }
 
     pub fn mesh(self: *const World, vertices: []math.Vertex, indices: []u16) math.Mesh {
@@ -129,7 +64,6 @@ pub const World = struct {
         var mask: [SIZE * SIZE]FaceInfo = undefined;
         const shades = [_]f32{ 0.8, 0.8, 0.6, 0.8, 1.0, 1.0 };
 
-        // Greedy meshing - sweep each axis
         inline for (0..3) |axis| {
             const u = (axis + 1) % 3;
             const v = (axis + 2) % 3;
@@ -251,11 +185,10 @@ fn buildQuad(
     height: usize,
     shades: [6]f32,
 ) void {
-    // White color with proper shading
     const shade_offset: usize = if (face_info.is_back) 0 else 1;
     const shade_idx = axis * 2 + shade_offset;
     const shade = shades[shade_idx];
-    const fcol = [4]f32{ 1.0 * shade, 1.0 * shade, 1.0 * shade, 1.0 };
+    const fcol = [4]f32{ shade, shade, shade, 1.0 };
 
     const face_pos: f32 = @floatFromInt(d);
     var quad = [4][3]f32{ .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 }, .{ 0, 0, 0 } };

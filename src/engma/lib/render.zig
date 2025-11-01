@@ -8,8 +8,6 @@ const math = @import("math.zig");
 
 pub fn Gfx(comptime ShaderType: type) type {
     return struct {
-        const Self = @This();
-
         pipe: sg.Pipeline,
         bind: sg.Bindings,
         pass: sg.PassAction,
@@ -17,7 +15,7 @@ pub fn Gfx(comptime ShaderType: type) type {
         proj: math.Mat4,
         shader: sg.Shader,
 
-        pub fn init(_: std.mem.Allocator) Self {
+        pub fn init(_: std.mem.Allocator) @This() {
             if (!sg.isvalid()) {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
@@ -32,54 +30,31 @@ pub fn Gfx(comptime ShaderType: type) type {
             };
         }
 
-        const BuildResult = struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader };
+        pub fn draw(self: *@This(), world: anytype, view: math.Mat4) void {
+            if (self.count == 0) {
+                self.cleanup();
+                var verts: [32768]math.Vertex = undefined;
+                var idx: [49152]u16 = undefined;
+                const mesh = world.mesh(&verts, &idx);
 
-        fn build(world: anytype) BuildResult {
-            var verts: [32768]math.Vertex = undefined;
-            var idx: [49152]u16 = undefined;
-            const mesh = world.mesh(&verts, &idx);
+                var layout = sg.VertexLayoutState{};
+                layout.attrs[0].format = .FLOAT3;
+                layout.attrs[1].format = .FLOAT4;
 
-            var layout = sg.VertexLayoutState{};
-            layout.attrs[0].format = .FLOAT3;
-            layout.attrs[1].format = .FLOAT4;
-
-            const shader = sg.makeShader(ShaderType.desc(sg.queryBackend()));
-            const pipeline = sg.makePipeline(.{
-                .shader = shader,
-                .layout = layout,
-                .index_type = .UINT16,
-                .depth = .{ .compare = .LESS_EQUAL, .write_enabled = true },
-                .cull_mode = .BACK,
-            });
-
-            return .{
-                .pipe = pipeline,
-                .bind = .{
+                self.shader = sg.makeShader(ShaderType.desc(sg.queryBackend()));
+                self.pipe = sg.makePipeline(.{
+                    .shader = self.shader,
+                    .layout = layout,
+                    .index_type = .UINT16,
+                    .depth = .{ .compare = .LESS_EQUAL, .write_enabled = true },
+                    .cull_mode = .BACK,
+                });
+                self.bind = .{
                     .vertex_buffers = .{ sg.makeBuffer(.{ .data = sg.asRange(mesh.vertices) }), .{}, .{}, .{}, .{}, .{}, .{}, .{} },
                     .index_buffer = sg.makeBuffer(.{ .usage = .{ .index_buffer = true }, .data = sg.asRange(mesh.indices) }),
-                },
-                .pass = .{ .colors = .{ .{ .load_action = .CLEAR, .clear_value = .{ .r = 0.1, .g = 0.1, .b = 0.2, .a = 1 } }, .{}, .{}, .{}, .{}, .{}, .{}, .{} } },
-                .count = @intCast(mesh.indices.len),
-                .shader = shader,
-            };
-        }
-
-        pub fn tick(_: *Self, _: f32) void {}
-
-        pub fn event(_: *Self, _: anytype) void {}
-
-        pub fn draw(self: *Self, world: anytype, view: math.Mat4) void {
-            if (self.count == 0) {
-                self.deinit_resources();
-                const m = build(world);
-                self.* = .{
-                    .pipe = m.pipe,
-                    .bind = m.bind,
-                    .pass = m.pass,
-                    .count = m.count,
-                    .shader = m.shader,
-                    .proj = self.proj,
                 };
+                self.pass = .{ .colors = .{ .{ .load_action = .CLEAR, .clear_value = .{ .r = 0.1, .g = 0.1, .b = 0.2, .a = 1 } }, .{}, .{}, .{}, .{}, .{}, .{}, .{} } };
+                self.count = @intCast(mesh.indices.len);
             }
 
             simgui.newFrame(.{ .width = sapp.width(), .height = sapp.height(), .delta_time = sapp.frameDuration() });
@@ -92,7 +67,6 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.applyUniforms(0, sg.asRange(&mvp));
             sg.draw(0, self.count, 1);
 
-            // Crosshair
             const w = @as(f32, @floatFromInt(sapp.width()));
             const h = @as(f32, @floatFromInt(sapp.height()));
             const cx, const cy = .{ w * 0.5, h * 0.5 };
@@ -102,11 +76,8 @@ pub fn Gfx(comptime ShaderType: type) type {
             _ = ig.igBegin("##cross", null, ig.ImGuiWindowFlags_NoTitleBar | ig.ImGuiWindowFlags_NoResize | ig.ImGuiWindowFlags_NoMove | ig.ImGuiWindowFlags_NoBackground | ig.ImGuiWindowFlags_NoInputs);
 
             const dl = ig.igGetWindowDrawList();
-            const size = 10.0;
-            const color = 0xFFFFFFFF;
-
-            ig.ImDrawList_AddLine(dl, .{ .x = cx - size, .y = cy }, .{ .x = cx + size, .y = cy }, color);
-            ig.ImDrawList_AddLine(dl, .{ .x = cx, .y = cy - size }, .{ .x = cx, .y = cy + size }, color);
+            ig.ImDrawList_AddLine(dl, .{ .x = cx - 10, .y = cy }, .{ .x = cx + 10, .y = cy }, 0xFFFFFFFF);
+            ig.ImDrawList_AddLine(dl, .{ .x = cx, .y = cy - 10 }, .{ .x = cx, .y = cy + 10 }, 0xFFFFFFFF);
             ig.igEnd();
 
             simgui.render();
@@ -114,30 +85,22 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.commit();
         }
 
-        pub fn getDeltaTime(_: *Self) f32 {
+        pub fn getDeltaTime(_: *@This()) f32 {
             return @floatCast(sapp.frameDuration());
         }
 
-        fn deinit_resources(self: *Self) void {
+        fn cleanup(self: *@This()) void {
             if (self.count > 0) {
                 if (self.bind.vertex_buffers[0].id != 0) sg.destroyBuffer(self.bind.vertex_buffers[0]);
                 if (self.bind.index_buffer.id != 0) sg.destroyBuffer(self.bind.index_buffer);
                 if (self.pipe.id != 0) sg.destroyPipeline(self.pipe);
                 if (self.shader.id != 0) sg.destroyShader(self.shader);
-
-                self.* = .{
-                    .pipe = sg.Pipeline{},
-                    .bind = sg.Bindings{},
-                    .pass = sg.PassAction{},
-                    .count = 0,
-                    .proj = self.proj,
-                    .shader = sg.Shader{},
-                };
+                self.count = 0;
             }
         }
 
-        pub fn deinit(self: *Self, _: std.mem.Allocator) void {
-            self.deinit_resources();
+        pub fn deinit(self: *@This(), _: std.mem.Allocator) void {
+            self.cleanup();
         }
     };
 }
