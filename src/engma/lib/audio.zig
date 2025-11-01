@@ -22,7 +22,10 @@ pub const Audio = struct {
     pub fn deinit(self: *Audio, allocator: std.mem.Allocator) void {
         _ = self;
         _ = allocator;
-        if (sokol.audio.isvalid()) sokol.audio.shutdown();
+        // Ensure safe shutdown
+        if (sokol.audio.isvalid()) {
+            sokol.audio.shutdown();
+        }
     }
 
     pub fn tick(self: *Audio, dt: f32) void {
@@ -55,30 +58,33 @@ fn callback(buffer: [*c]f32, num_frames: i32, num_channels: i32) callconv(.c) vo
     const dt = 1.0 / sample_rate;
 
     for (0..frames) |i| {
-        var sample: f32 = 0;
+        var sample: f32 = 0.0;
 
-        // Jump sound: frequency sweep
-        if (jump_time > 0) {
+        // Jump sound: frequency sweep with better phase management
+        if (jump_time > 0.0) {
             const progress = 1.0 - (jump_time / 0.15);
             const frequency = 220.0 + (440.0 - 220.0) * progress;
             const envelope = @exp(-progress * 8.0);
             sample += @sin(jump_phase * 2.0 * std.math.pi) * envelope * 0.3;
             jump_phase += frequency / sample_rate;
-            if (jump_phase >= 1.0) jump_phase -= 1.0;
-            jump_time -= dt;
+            jump_phase = @mod(jump_phase, 1.0); // Modern modulo operation
+            jump_time = @max(0.0, jump_time - dt);
         }
 
         // Land sound: falling frequency with noise
-        if (land_time > 0) {
+        if (land_time > 0.0) {
             const progress = 1.0 - (land_time / 0.08);
             const frequency = 150.0 + (80.0 - 150.0) * progress;
             const envelope = @exp(-progress * 12.0);
             const noise = @sin(land_phase * 13.7) * 0.1;
             sample += (@sin(land_phase * 2.0 * std.math.pi) + noise) * envelope * 0.2;
             land_phase += frequency / sample_rate;
-            if (land_phase >= 1.0) land_phase -= 1.0;
-            land_time -= dt;
+            land_phase = @mod(land_phase, 1.0); // Modern modulo operation
+            land_time = @max(0.0, land_time - dt);
         }
+
+        // Clamp sample to prevent audio artifacts
+        sample = @max(-1.0, @min(1.0, sample));
 
         // Write to all channels
         for (0..channels) |ch| {

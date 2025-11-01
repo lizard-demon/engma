@@ -111,14 +111,17 @@ pub const Player = struct {
     pub const Update = struct {
         pub fn movement(self: *Player, dir: Vec, dt: f32) void {
             const len = @sqrt(dir.data[0] * dir.data[0] + dir.data[2] * dir.data[2]);
-            if (len < cfg.move.min_len) return if (self.ground) Update.friction(self, dt);
+            if (len < cfg.move.min_len) {
+                if (self.ground) Update.friction(self, dt);
+                return;
+            }
 
-            const wish = Vec.new(dir.data[0] / len, 0, dir.data[2] / len);
+            const wish = Vec.new(dir.data[0] / len, 0.0, dir.data[2] / len);
             const base_speed: f32 = if (self.crouch) cfg.move.crouch_speed else cfg.move.speed;
             const max = if (self.ground) base_speed * len else @min(base_speed * len, cfg.move.air_cap);
-            const add = @max(0, max - Vec.dot(self.vel, wish));
+            const add = @max(0.0, max - Vec.dot(self.vel, wish));
 
-            if (add > 0) {
+            if (add > 0.0) {
                 self.vel = Vec.add(self.vel, Vec.scale(wish, @min(cfg.move.accel * dt, add)));
             }
 
@@ -128,11 +131,11 @@ pub const Player = struct {
         pub fn friction(self: *Player, dt: f32) void {
             const s = @sqrt(self.vel.data[0] * self.vel.data[0] + self.vel.data[2] * self.vel.data[2]);
             if (s < cfg.friction.min_speed) {
-                self.vel.data[0] = 0;
-                self.vel.data[2] = 0;
+                self.vel.data[0] = 0.0;
+                self.vel.data[2] = 0.0;
                 return;
             }
-            const f = @max(0, s - @max(s, cfg.friction.min_speed) * cfg.friction.factor * dt) / s;
+            const f = @max(0.0, s - @max(s, cfg.friction.min_speed) * cfg.friction.factor * dt) / s;
             self.vel.data[0] *= f;
             self.vel.data[2] *= f;
         }

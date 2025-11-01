@@ -89,21 +89,38 @@ pub const World = struct {
     // Direct binary save - just dump the bitpacked data
     pub fn save(self: *const World, allocator: std.mem.Allocator, path: []const u8) !void {
         _ = allocator;
-        const file = try std.fs.cwd().createFile(path, .{});
+        const file = std.fs.cwd().createFile(path, .{}) catch |err| switch (err) {
+            error.AccessDenied, error.PathAlreadyExists => return err,
+            else => return err,
+        };
         defer file.close();
 
         const bytes = std.mem.asBytes(&self.data);
-        try file.writeAll(bytes);
+        file.writeAll(bytes) catch |err| switch (err) {
+            error.DiskQuota, error.FileTooBig, error.NoSpaceLeft => return err,
+            else => return err,
+        };
     }
 
-    // Direct binary load
+    // Direct binary load with better error handling
     pub fn load(self: *World, allocator: std.mem.Allocator, path: []const u8) !void {
         _ = allocator;
-        const file = std.fs.cwd().openFile(path, .{}) catch return;
+        const file = std.fs.cwd().openFile(path, .{}) catch |err| switch (err) {
+            error.FileNotFound => return, // Gracefully handle missing file
+            error.AccessDenied => return err,
+            else => return err,
+        };
         defer file.close();
 
         const bytes = std.mem.asBytes(&self.data);
-        _ = try file.readAll(bytes);
+        const bytes_read = file.readAll(bytes) catch |err| switch (err) {
+            else => return err,
+        };
+
+        // Validate that we read the expected amount of data
+        if (bytes_read != bytes.len) {
+            std.log.warn("World file size mismatch: expected {}, got {}", .{ bytes.len, bytes_read });
+        }
     }
 
     pub fn mesh(self: *const World, vertices: []math.Vertex, indices: []u16) math.Mesh {

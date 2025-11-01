@@ -25,7 +25,7 @@ pub fn Gfx(comptime ShaderType: type) type {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
             }
-            return .{ .pipe = sg.Pipeline{}, .bind = sg.Bindings{}, .pass = sg.PassAction{}, .count = 0, .proj = math.proj(90, 1.33, 0.1, 100), .shader = sg.Shader{} };
+            return .{ .pipe = sg.Pipeline{}, .bind = sg.Bindings{}, .pass = sg.PassAction{}, .count = 0, .proj = math.perspective(std.math.degreesToRadians(90.0), 4.0 / 3.0, 0.1, 100.0), .shader = sg.Shader{} };
         }
 
         const BuildResult = struct { pipe: sg.Pipeline, bind: sg.Bindings, pass: sg.PassAction, count: u32, shader: sg.Shader };
@@ -77,17 +77,32 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.beginPass(.{ .action = self.pass, .swapchain = sokol.glue.swapchain() });
             sg.applyPipeline(self.pipe);
             sg.applyBindings(self.bind);
-            sg.applyUniforms(0, sg.asRange(&math.Mat.mul(self.proj, view)));
+
+            // Use modern Mat4 type for uniforms
+            const mvp_mat4 = math.Mat4.fromMat(math.Mat.mul(self.proj, view));
+            sg.applyUniforms(0, sg.asRange(&mvp_mat4));
             sg.draw(0, self.count, 1);
 
-            // Cross
-            const cx, const cy = .{ @as(f32, @floatFromInt(sapp.width())) * 0.5, @as(f32, @floatFromInt(sapp.height())) * 0.5 };
-            ig.igSetNextWindowPos(.{ .x = 0, .y = 0 }, ig.ImGuiCond_Always);
-            ig.igSetNextWindowSize(.{ .x = @floatFromInt(sapp.width()), .y = @floatFromInt(sapp.height()) }, ig.ImGuiCond_Always);
-            _ = ig.igBegin("##cross", null, ig.ImGuiWindowFlags_NoTitleBar | ig.ImGuiWindowFlags_NoResize | ig.ImGuiWindowFlags_NoMove | ig.ImGuiWindowFlags_NoBackground | ig.ImGuiWindowFlags_NoInputs);
+            // Crosshair rendering with better type safety
+            const screen_width = @as(f32, @floatFromInt(sapp.width()));
+            const screen_height = @as(f32, @floatFromInt(sapp.height()));
+            const cx = screen_width * 0.5;
+            const cy = screen_height * 0.5;
+
+            ig.igSetNextWindowPos(.{ .x = 0.0, .y = 0.0 }, ig.ImGuiCond_Always);
+            ig.igSetNextWindowSize(.{ .x = screen_width, .y = screen_height }, ig.ImGuiCond_Always);
+            _ = ig.igBegin("##cross", null, ig.ImGuiWindowFlags_NoTitleBar |
+                ig.ImGuiWindowFlags_NoResize |
+                ig.ImGuiWindowFlags_NoMove |
+                ig.ImGuiWindowFlags_NoBackground |
+                ig.ImGuiWindowFlags_NoInputs);
+
             const dl = ig.igGetWindowDrawList();
-            ig.ImDrawList_AddLine(dl, .{ .x = cx - 10, .y = cy }, .{ .x = cx + 10, .y = cy }, 0xFFFFFFFF);
-            ig.ImDrawList_AddLine(dl, .{ .x = cx, .y = cy - 10 }, .{ .x = cx, .y = cy + 10 }, 0xFFFFFFFF);
+            const crosshair_size = 10.0;
+            const crosshair_color = 0xFFFFFFFF;
+
+            ig.ImDrawList_AddLine(dl, .{ .x = cx - crosshair_size, .y = cy }, .{ .x = cx + crosshair_size, .y = cy }, crosshair_color);
+            ig.ImDrawList_AddLine(dl, .{ .x = cx, .y = cy - crosshair_size }, .{ .x = cx, .y = cy + crosshair_size }, crosshair_color);
             ig.igEnd();
 
             simgui.render();
