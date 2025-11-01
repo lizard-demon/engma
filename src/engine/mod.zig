@@ -56,11 +56,9 @@ pub fn Engine(comptime Config: type) type {
             self.audio.tick(self.dt);
             self.gfx.tick(self.dt);
 
-            // Physics orchestration - engine coordinates module interactions
-            self.body.handleMovement(&self.keys, self.dt);
-            self.body.handleJump(&self.keys, &self.audio);
-            self.body.handleCollision(&self.world, &self.audio, self.dt);
+            // Physics orchestration - unified Quake movement system
             self.body.tick(self.dt);
+            self.body.handleMovement(&self.keys, &self.world, &self.audio, self.dt);
         }
 
         pub fn draw(self: *Self) void {

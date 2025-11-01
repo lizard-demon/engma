@@ -60,20 +60,14 @@ pub const Player = struct {
     }
 
     pub fn tick(self: *Player, dt: f32) void {
-        // Basic physics update - movement will be handled via engine orchestration
+        _ = dt;
+        // Basic state update
         self.prev_ground = self.ground;
-
-        // Apply gravity
-        if (!self.ground) {
-            self.vel.data[1] -= cfg.phys.gravity * dt;
-        }
-
-        // Update position
-        self.pos = Vec.add(self.pos, self.vel.scale(dt));
     }
 
-    // Movement input - called by engine with input data
-    pub fn handleMovement(self: *Player, keys: anytype, dt: f32) void {
+    // Complete Quake movement system - called by engine with all needed data
+    pub fn handleMovement(self: *Player, keys: anytype, world: anytype, audio: anytype, dt: f32) void {
+        // Movement input - convert WASD to movement vector
         var dir = Vec.zero();
         const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
         const st: f32 = if (keys.right()) 1 else if (keys.left()) -1 else 0;
@@ -81,25 +75,36 @@ pub const Player = struct {
         if (st != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
         if (fw != 0) dir = Vec.add(dir, Vec.scale(Vec.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
 
-        // Apply movement using the existing Update system
-        if (dir.len() > cfg.move.min_len) {
-            Update.movement(self, dir, dt);
-        } else if (self.ground) {
-            Update.friction(self, dt);
-        }
-    }
+        // Quake movement
+        Update.movement(self, dir, dt);
 
-    // Jump handling - called by engine with input data
-    pub fn handleJump(self: *Player, keys: anytype, audio: anytype) void {
+        // Crouch handling
+        const want_crouch = keys.crouch();
+        if (self.crouch and !want_crouch) {
+            // Trying to stand up - check if there's space
+            const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
+            const test_pos = Vec.new(self.pos.data[0], self.pos.data[1] + height_diff, self.pos.data[2]);
+            const standing_box = BBox{
+                .min = Vec.new(-cfg.size.width, -cfg.size.stand / 2.0, -cfg.size.width),
+                .max = Vec.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
+            };
+
+            if (!checkStatic(world, standing_box.at(test_pos))) {
+                self.pos.data[1] += height_diff;
+                self.crouch = false;
+            }
+        } else {
+            self.crouch = want_crouch;
+        }
+
+        // Jump
         if (keys.jump() and self.ground) {
             self.vel.data[1] = cfg.jump_power;
             self.ground = false;
             audio.jump();
         }
-    }
 
-    // Collision handling - called by engine with world data
-    pub fn handleCollision(self: *Player, world: anytype, audio: anytype, dt: f32) void {
+        // Physics and collision
         Update.physics(self, world, audio, dt);
     }
 
