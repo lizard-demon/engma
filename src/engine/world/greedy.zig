@@ -19,11 +19,21 @@ pub const World = struct {
         // Try to load map.dat, fallback to default world
         w.load(allocator, "map.dat") catch {
             // Generate simple world: floor + walls
+
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
                 if ((is_wall and y <= 2) or is_floor) {
-                    w.setBit(@intCast(x), @intCast(y), @intCast(z), true);
+                    // Use the proper setBit method after world is initialized
+                    const x_u32: u32 = @intCast(x);
+                    const y_u32: u32 = @intCast(y);
+                    const z_u32: u32 = @intCast(z);
+
+                    const idx = y_u32 * SIZE + z_u32;
+                    const chunk_idx = idx / BITS_PER_U64;
+                    const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
+                    const mask = @as(u64, 1) << bit_idx;
+                    w.data[x_u32][chunk_idx] |= mask;
                 }
             };
         };
@@ -105,6 +115,7 @@ pub const World = struct {
                 generateQuads(&mask, &vi, &ii, vertices, indices, axis, u, v, d, shades);
             }
         }
+
         return .{ .vertices = vertices[0..vi], .indices = indices[0..ii] };
     }
 };
