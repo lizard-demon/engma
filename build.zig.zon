@@ -1,7 +1,7 @@
 .{
     .name = .tinycode_fps,
-    .version = "0.0.0",
-    .fingerprint = 0x3c044a27bc6fc57a,
+    .version = "0.1.0",
+    .fingerprint = 0x3c044a27b051cf7d,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .sokol = .{

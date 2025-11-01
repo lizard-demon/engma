@@ -31,8 +31,13 @@ export fn frame() void {
 export fn cleanup() void {
     const allocator = gpa.allocator();
     game_engine.deinit(allocator);
-    _ = gpa.deinit();
-    // Shutdown graphics context
+
+    // Check for memory leaks in debug builds
+    if (gpa.deinit() == .leak) {
+        std.log.err("Memory leak detected during cleanup", .{});
+    }
+
+    // Shutdown graphics context safely
     const sokol = @import("sokol");
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();

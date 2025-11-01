@@ -21,24 +21,28 @@ pub fn build(b: *std.Build) !void {
         .slang = .{ .glsl410 = true, .glsl300es = true, .metal_macos = true, .wgsl = true },
     });
 
-    // Engma module
+    // Engma module with proper dependency management
     const engma_module = b.createModule(.{
         .root_source_file = b.path("src/engma/mod.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sokol", .module = dep_sokol.module("sokol") },
+            .{ .name = "cimgui", .module = dep_cimgui.module("cimgui") },
+        },
     });
-    engma_module.addImport("sokol", dep_sokol.module("sokol"));
-    engma_module.addImport("cimgui", dep_cimgui.module("cimgui"));
 
-    // Main module
+    // Main module with clean dependency structure
     const main_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sokol", .module = dep_sokol.module("sokol") },
+            .{ .name = "cimgui", .module = dep_cimgui.module("cimgui") },
+            .{ .name = "engma", .module = engma_module },
+        },
     });
-    main_module.addImport("sokol", dep_sokol.module("sokol"));
-    main_module.addImport("cimgui", dep_cimgui.module("cimgui"));
-    main_module.addImport("engma", engma_module);
 
     // Build for WASM or native
     if (target.result.cpu.arch.isWasm()) {
@@ -74,11 +78,19 @@ fn buildNative(b: *std.Build, opts: BuildOptions) !void {
         .root_module = opts.main_module,
     });
     exe.step.dependOn(opts.shader);
+
+    // Modern artifact installation
     b.installArtifact(exe);
 
+    // Run step with proper dependency management
     const run = b.addRunArtifact(exe);
+    if (b.args) |args| {
+        run.addArgs(args);
+    }
     run.step.dependOn(b.getInstallStep());
-    b.step("run", "Run the FPS engine").dependOn(&run.step);
+
+    const run_step = b.step("run", "Run the FPS engine");
+    run_step.dependOn(&run.step);
 }
 
 fn buildWeb(b: *std.Build, opts: BuildOptions) !void {
