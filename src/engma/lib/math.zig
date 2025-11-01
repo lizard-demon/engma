@@ -1,33 +1,26 @@
 const std = @import("std");
-const math = std.math;
 
-// Vec2 for 2D operations
 pub const Vec2 = struct {
     v: @Vector(2, f32),
 
-    pub fn init(x: f32, y: f32) Vec2 {
+    pub fn new(x: f32, y: f32) Vec2 {
         return .{ .v = .{ x, y } };
     }
 
     pub fn zero() Vec2 {
-        return .{ .v = @splat(0.0) };
+        return .{ .v = @splat(0) };
     }
 };
 
-// Vec3 for 3D operations
 pub const Vec3 = struct {
     v: @Vector(3, f32),
-
-    pub fn init(x: f32, y: f32, z: f32) Vec3 {
-        return .{ .v = .{ x, y, z } };
-    }
 
     pub fn new(x: f32, y: f32, z: f32) Vec3 {
         return .{ .v = .{ x, y, z } };
     }
 
     pub fn zero() Vec3 {
-        return .{ .v = @splat(0.0) };
+        return .{ .v = @splat(0) };
     }
 
     pub fn add(a: Vec3, b: Vec3) Vec3 {
@@ -36,10 +29,6 @@ pub const Vec3 = struct {
 
     pub fn sub(a: Vec3, b: Vec3) Vec3 {
         return .{ .v = a.v - b.v };
-    }
-
-    pub fn mul(a: Vec3, b: Vec3) Vec3 {
-        return .{ .v = a.v * b.v };
     }
 
     pub fn scale(v: Vec3, s: f32) Vec3 {
@@ -59,28 +48,24 @@ pub const Vec3 = struct {
     }
 
     pub fn length(v: Vec3) f32 {
-        return @sqrt(v.dot(v));
+        return @sqrt(dot(v, v));
     }
 
     pub fn normalize(v: Vec3) Vec3 {
-        const len = v.length();
-        return if (len > math.floatEps(f32)) v.scale(1.0 / len) else Vec3.zero();
+        const len = length(v);
+        return if (len > std.math.floatEps(f32)) scale(v, 1.0 / len) else zero();
     }
 };
-
-// Type aliases for compatibility
-pub const Vec = Vec3;
-pub const Mat = Mat4;
 
 pub const Mat4 = struct {
     m: [16]f32,
 
     pub fn identity() Mat4 {
         return .{ .m = .{
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
         } };
     }
 
@@ -88,7 +73,7 @@ pub const Mat4 = struct {
         var result: Mat4 = undefined;
         inline for (0..4) |col| {
             inline for (0..4) |row| {
-                var sum: f32 = 0.0;
+                var sum: f32 = 0;
                 inline for (0..4) |k| {
                     sum += a.m[k * 4 + row] * b.m[col * 4 + k];
                 }
@@ -97,42 +82,13 @@ pub const Mat4 = struct {
         }
         return result;
     }
-
-    pub fn translate(v: Vec3) Mat4 {
-        var m = Mat4.identity();
-        m.m[12] = v.v[0];
-        m.m[13] = v.v[1];
-        m.m[14] = v.v[2];
-        return m;
-    }
-
-    pub fn scale(v: Vec3) Mat4 {
-        var m = Mat4.identity();
-        m.m[0] = v.v[0];
-        m.m[5] = v.v[1];
-        m.m[10] = v.v[2];
-        return m;
-    }
-
-    // Create from data array for compatibility
-    pub fn fromData(data: [16]f32) Mat4 {
-        return .{ .m = data };
-    }
 };
 
-// Box type for collision detection
-pub const Box = struct {
-    min: Vec3,
-    max: Vec3,
-};
-
-// Vertex type for rendering
 pub const Vertex = struct {
     pos: [3]f32,
     col: [4]f32,
 };
 
-// Mesh type for rendering
 pub const Mesh = struct {
     vertices: []const Vertex,
     indices: []const u16,
@@ -142,12 +98,10 @@ pub fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) Mat4 {
     const f = 1.0 / @tan(fov_y * 0.5);
     const range_inv = 1.0 / (near - far);
 
-    var m = Mat4{ .m = std.mem.zeroes([16]f32) };
-    m.m[0] = f / aspect;
-    m.m[5] = f;
-    m.m[10] = (far + near) * range_inv;
-    m.m[11] = -1.0;
-    m.m[14] = 2.0 * far * near * range_inv;
-
-    return m;
+    return .{ .m = .{
+        f / aspect, 0, 0,                            0,
+        0,          f, 0,                            0,
+        0,          0, (far + near) * range_inv,     -1,
+        0,          0, 2.0 * far * near * range_inv, 0,
+    } };
 }

@@ -1,19 +1,12 @@
-// Meta-Engine: Brutalist, hyper-minimalist, swappable meta-engine
-// Pure abstraction over implementations - based on the architectural genius of the FPS demo
 const std = @import("std");
 const engma = @import("engma");
 
-const world = engma.world;
-const phys = engma.physics;
-const lib = engma.lib;
-const shaders = engma.shader;
-
 const Config = struct {
-    pub const World = world.greedy;
-    pub const Gfx = lib.render(shaders.cube);
-    pub const Body = phys.quake;
-    pub const Keys = lib.input;
-    pub const Audio = lib.audio;
+    pub const World = engma.world.greedy;
+    pub const Gfx = engma.lib.render(engma.shader.cube);
+    pub const Body = engma.physics.quake;
+    pub const Keys = engma.lib.input;
+    pub const Audio = engma.lib.audio;
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var game_engine: engma.Engine(Config) = undefined;
@@ -32,12 +25,10 @@ export fn cleanup() void {
     const allocator = gpa.allocator();
     game_engine.deinit(allocator);
 
-    // Check for memory leaks in debug builds
     if (gpa.deinit() == .leak) {
-        std.log.err("Memory leak detected during cleanup", .{});
+        std.log.err("Memory leak detected", .{});
     }
 
-    // Shutdown graphics context safely
     const sokol = @import("sokol");
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();

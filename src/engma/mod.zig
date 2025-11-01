@@ -84,7 +84,6 @@ pub fn Engine(comptime Config: type) type {
             self.keys.deinit(allocator);
         }
 
-        // Modern Zig 0.15.1 compile-time type-safe module access with better error messages
         pub fn getModule(self: *const Self, comptime T: type) *const T {
             return switch (T) {
                 Config.World => &self.world,
@@ -92,12 +91,10 @@ pub fn Engine(comptime Config: type) type {
                 Config.Body => &self.body,
                 Config.Audio => &self.audio,
                 Config.Gfx => &self.gfx,
-                else => @compileError("Unknown module type: " ++ @typeName(T) ++
-                    ". Available types: World, Keys, Body, Audio, Gfx"),
+                else => @compileError("Unknown module type: " ++ @typeName(T)),
             };
         }
 
-        // Mutable version with enhanced type safety
         pub fn getModuleMut(self: *Self, comptime T: type) *T {
             return switch (T) {
                 Config.World => &self.world,
@@ -105,26 +102,7 @@ pub fn Engine(comptime Config: type) type {
                 Config.Body => &self.body,
                 Config.Audio => &self.audio,
                 Config.Gfx => &self.gfx,
-                else => @compileError("Unknown module type: " ++ @typeName(T) ++
-                    ". Available types: World, Keys, Body, Audio, Gfx"),
-            };
-        }
-
-        // Modern error handling for module operations
-        pub const ModuleError = error{
-            InvalidModule,
-            ModuleNotInitialized,
-        };
-
-        // Safe module access with runtime checks
-        pub fn tryGetModule(self: *const Self, comptime T: type) ?*const T {
-            return switch (T) {
-                Config.World => &self.world,
-                Config.Keys => &self.keys,
-                Config.Body => &self.body,
-                Config.Audio => &self.audio,
-                Config.Gfx => &self.gfx,
-                else => null,
+                else => @compileError("Unknown module type: " ++ @typeName(T)),
             };
         }
     };
