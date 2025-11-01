@@ -15,10 +15,12 @@ const Config = struct {
     pub const Keys = lib.input;
     pub const Audio = lib.audio;
 };
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var game_engine: engine.Engine(Config) = undefined;
 
 export fn init() void {
-    game_engine = engine.Engine(Config).init();
+    const allocator = gpa.allocator();
+    game_engine = engine.Engine(Config).init(allocator);
 }
 
 export fn frame() void {
@@ -27,7 +29,9 @@ export fn frame() void {
 }
 
 export fn cleanup() void {
-    game_engine.deinit();
+    const allocator = gpa.allocator();
+    game_engine.deinit(allocator);
+    _ = gpa.deinit();
     // Shutdown graphics context
     const sokol = @import("sokol");
     sokol.imgui.shutdown();

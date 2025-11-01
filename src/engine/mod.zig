@@ -34,9 +34,9 @@ pub fn Engine(comptime Config: type) type {
         keys: Config.Keys,
         audio: Config.Audio,
 
-        pub fn init() Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             return .{
-                .world = Config.World.init(),
+                .world = Config.World.init(allocator),
                 .gfx = Config.Gfx.init(),
                 .body = Config.Body.init(),
                 .keys = Config.Keys.init(),
@@ -63,7 +63,8 @@ pub fn Engine(comptime Config: type) type {
             }
         }
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+            self.world.deinit(allocator);
             self.audio.deinit();
             self.gfx.deinit();
         }

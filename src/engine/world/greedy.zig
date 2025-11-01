@@ -1,4 +1,5 @@
 // 64x64x64 greedy meshed world - adapted from duel
+const std = @import("std");
 const math = @import("../lib/math.zig");
 
 const SIZE = 64;
@@ -28,16 +29,23 @@ fn blockColor(block: Block) [3]f32 {
 pub const World = struct {
     blocks: [SIZE][SIZE][SIZE]Block,
 
-    pub fn init() World {
+    pub fn init(allocator: std.mem.Allocator) World {
         var w = World{ .blocks = [_][SIZE][SIZE]Block{[_][SIZE]Block{[_]Block{0} ** SIZE} ** SIZE} ** SIZE };
 
-        // Generate simple world: floor + walls
-        for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
-            const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
-            const is_floor = y == 0;
-            w.blocks[x][y][z] = if ((is_wall and y <= 2) or is_floor) 2 else 0;
+        // Try to load map.dat, fallback to default world if it doesn't exist
+        w.load(allocator, "map.dat") catch {
+            // Generate simple world: floor + walls
+            for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
+                const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
+                const is_floor = y == 0;
+                w.blocks[x][y][z] = if ((is_wall and y <= 2) or is_floor) 2 else 0;
+            };
         };
         return w;
+    }
+
+    pub fn deinit(self: *const World, allocator: std.mem.Allocator) void {
+        self.save(allocator, "map.dat") catch {};
     }
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
@@ -48,6 +56,80 @@ pub const World = struct {
     fn getBlock(self: *const World, x: i32, y: i32, z: i32) Block {
         if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return 0;
         return self.blocks[@intCast(x)][@intCast(y)][@intCast(z)];
+    }
+
+    pub fn set(self: *World, x: i32, y: i32, z: i32, block: Block) bool {
+        if (x < 0 or x >= SIZE or y < 0 or y >= SIZE or z < 0 or z >= SIZE) return false;
+        const old_block = self.blocks[@intCast(x)][@intCast(y)][@intCast(z)];
+        if (old_block == block) return false;
+        self.blocks[@intCast(x)][@intCast(y)][@intCast(z)] = block;
+        return true;
+    }
+
+    // Binary RLE save
+    pub fn save(self: *const World, allocator: std.mem.Allocator, path: []const u8) !void {
+        const compressed = try allocator.alloc(u8, SIZE * SIZE * SIZE * 2);
+        defer allocator.free(compressed);
+
+        var write_pos: usize = 0;
+        var current_block = self.blocks[0][0][0];
+        var run_length: u8 = 1;
+
+        for (0..SIZE) |x| {
+            for (0..SIZE) |y| {
+                for (0..SIZE) |z| {
+                    if (x == 0 and y == 0 and z == 0) continue;
+
+                    const block = self.blocks[x][y][z];
+                    if (block == current_block and run_length < 255) {
+                        run_length += 1;
+                    } else {
+                        compressed[write_pos] = run_length;
+                        compressed[write_pos + 1] = current_block;
+                        write_pos += 2;
+                        current_block = block;
+                        run_length = 1;
+                    }
+                }
+            }
+        }
+
+        compressed[write_pos] = run_length;
+        compressed[write_pos + 1] = current_block;
+        write_pos += 2;
+
+        const file = try std.fs.cwd().createFile(path, .{});
+        defer file.close();
+        try file.writeAll(compressed[0..write_pos]);
+    }
+
+    // Binary RLE load
+    pub fn load(self: *World, allocator: std.mem.Allocator, path: []const u8) !void {
+        const file = std.fs.cwd().openFile(path, .{}) catch return;
+        defer file.close();
+
+        const data = try file.readToEndAlloc(allocator, SIZE * SIZE * SIZE * 2);
+        defer allocator.free(data);
+
+        self.blocks = [_][SIZE][SIZE]Block{[_][SIZE]Block{[_]Block{0} ** SIZE} ** SIZE} ** SIZE;
+
+        var read_pos: usize = 0;
+        var block_pos: usize = 0;
+
+        while (read_pos + 1 < data.len and block_pos < SIZE * SIZE * SIZE) {
+            const run_length = data[read_pos];
+            const block_value = data[read_pos + 1];
+            read_pos += 2;
+
+            for (0..run_length) |_| {
+                if (block_pos >= SIZE * SIZE * SIZE) break;
+                const x = block_pos / (SIZE * SIZE);
+                const y = (block_pos % (SIZE * SIZE)) / SIZE;
+                const z = block_pos % SIZE;
+                self.blocks[x][y][z] = block_value;
+                block_pos += 1;
+            }
+        }
     }
 
     pub fn mesh(self: *const World, vertices: []math.Vertex, indices: []u16) math.Mesh {
