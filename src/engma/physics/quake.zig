@@ -4,6 +4,12 @@ const math = @import("../lib/math.zig");
 const Vec3 = math.Vec3;
 const Mat4 = math.Mat4;
 
+// Audio state for jump/land effects
+var jump_time: f32 = 0;
+var jump_phase: f32 = 0;
+var land_time: f32 = 0;
+var land_phase: f32 = 0;
+
 pub const Player = struct {
     pos: Vec3,
     vel: Vec3,
@@ -40,7 +46,7 @@ pub const Player = struct {
         self.prev_ground = self.ground;
     }
 
-    pub fn handleMovement(self: *Player, keys: anytype, world: anytype, audio: anytype, dt: f32) void {
+    pub fn handleMovement(self: *Player, keys: anytype, world: anytype, _: anytype, dt: f32) void {
         // Movement input
         var dir = Vec3.zero();
         const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
@@ -73,10 +79,10 @@ pub const Player = struct {
         if (keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            audio.jump();
+            triggerJump();
         }
 
-        Update.physics(self, world, audio, dt);
+        Update.physics(self, world, undefined, dt);
     }
 
     const Update = struct {
@@ -109,7 +115,7 @@ pub const Player = struct {
             self.vel = Vec3.new(self.vel.v[0] * f, self.vel.v[1], self.vel.v[2] * f);
         }
 
-        fn physics(self: *Player, world: anytype, audio: anytype, dt: f32) void {
+        fn physics(self: *Player, world: anytype, _: anytype, dt: f32) void {
             self.vel = Vec3.new(self.vel.v[0], self.vel.v[1] - cfg.phys.gravity * dt, self.vel.v[2]);
 
             const h: f32 = if (self.crouch) cfg.size.crouch else cfg.size.stand;
@@ -126,7 +132,7 @@ pub const Player = struct {
             self.ground = r.hit and @abs(r.vel.v[1]) < cfg.phys.ground_thresh;
 
             if (self.ground and !self.prev_ground and self.vel.v[1] < -2) {
-                audio.land();
+                triggerLand();
             }
 
             if (self.pos.v[1] < 0 or self.pos.v[1] > 64) {
@@ -304,4 +310,43 @@ fn checkStatic(world: anytype, aabb: BBox) bool {
         }
     }
     return false;
+}
+
+// Audio generation functions for jump/land effects
+pub fn triggerJump() void {
+    jump_time = 0.15;
+    jump_phase = 0;
+}
+
+pub fn triggerLand() void {
+    land_time = 0.08;
+    land_phase = 0;
+}
+
+pub fn generateAudioSample() f32 {
+    var sample: f32 = 0.0;
+    const dt = 1.0 / 44100.0;
+
+    if (jump_time > 0.0) {
+        const progress = 1.0 - (jump_time / 0.15);
+        const frequency = 220.0 + 220.0 * progress;
+        const envelope = @exp(-progress * 8.0);
+        sample += @sin(jump_phase * 2.0 * std.math.pi) * envelope * 0.3;
+        jump_phase += frequency / 44100.0;
+        jump_phase = @mod(jump_phase, 1.0);
+        jump_time = @max(0.0, jump_time - dt);
+    }
+
+    if (land_time > 0.0) {
+        const progress = 1.0 - (land_time / 0.08);
+        const frequency = 150.0 - 70.0 * progress;
+        const envelope = @exp(-progress * 12.0);
+        const noise = @sin(land_phase * 13.7) * 0.1;
+        sample += (@sin(land_phase * 2.0 * std.math.pi) + noise) * envelope * 0.2;
+        land_phase += frequency / 44100.0;
+        land_phase = @mod(land_phase, 1.0);
+        land_time = @max(0.0, land_time - dt);
+    }
+
+    return @max(-1.0, @min(1.0, sample));
 }
