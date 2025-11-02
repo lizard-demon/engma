@@ -3,6 +3,10 @@ const math = @import("../lib/math.zig");
 
 const Vec3 = math.Vec3;
 
+// Global audio state for explosions (similar to quake physics audio)
+var explosion_audio_time: f32 = 0;
+var explosion_audio_phase: f32 = 0;
+
 const Projectile = struct {
     pos: Vec3,
     vel: Vec3,
@@ -10,9 +14,18 @@ const Projectile = struct {
     active: bool,
 };
 
+const Explosion = struct {
+    pos: Vec3,
+    time: f32,
+    max_time: f32,
+    active: bool,
+};
+
 pub const Weapons = struct {
     projectiles: [32]Projectile,
+    explosions: [16]Explosion,
     projectile_count: usize,
+    explosion_count: usize,
     fire_cooldown: f32,
 
     const cfg = struct {
@@ -22,6 +35,7 @@ pub const Weapons = struct {
         const explosion_radius = 4.0;
         const rocket_jump_force = 8.0;
         const max_projectiles = 32;
+        const explosion_duration = 0.5;
     };
 
     pub fn init(_: std.mem.Allocator) Weapons {
@@ -32,7 +46,14 @@ pub const Weapons = struct {
                 .lifetime = 0.0,
                 .active = false,
             }} ** 32,
+            .explosions = [_]Explosion{.{
+                .pos = Vec3.zero(),
+                .time = 0.0,
+                .max_time = 0.0,
+                .active = false,
+            }} ** 16,
             .projectile_count = 0,
+            .explosion_count = 0,
             .fire_cooldown = 0.0,
         };
     }
@@ -65,6 +86,17 @@ pub const Weapons = struct {
                 self.explode(rocket.pos, body, world, audio);
                 rocket.active = false;
                 self.projectile_count -= 1;
+            }
+        }
+
+        // Update explosions
+        for (&self.explosions) |*explosion| {
+            if (!explosion.active) continue;
+
+            explosion.time += dt;
+            if (explosion.time >= explosion.max_time) {
+                explosion.active = false;
+                self.explosion_count -= 1;
             }
         }
     }
@@ -106,9 +138,27 @@ pub const Weapons = struct {
     }
 
     fn explode(self: *Weapons, explosion_pos: Vec3, body: anytype, world: anytype, audio: anytype) void {
-        _ = self;
         _ = world; // TODO: Add world destruction
         _ = audio; // TODO: Add explosion sound
+
+        // Create explosion visual effect
+        for (&self.explosions) |*slot| {
+            if (slot.active) continue;
+
+            slot.* = .{
+                .pos = explosion_pos,
+                .time = 0.0,
+                .max_time = cfg.explosion_duration,
+                .active = true,
+            };
+
+            self.explosion_count += 1;
+            break;
+        }
+
+        // Trigger explosion sound
+        explosion_audio_time = 0.3; // 0.3 second explosion sound
+        explosion_audio_phase = 0.0;
 
         // Calculate distance to player
         const to_player = Vec3.sub(body.pos, explosion_pos);
@@ -130,4 +180,106 @@ pub const Weapons = struct {
             }
         }
     }
+
+    // Visual data for rendering
+    pub fn addVisuals(self: *const Weapons, vertices: []math.Vertex, indices: []u16, vi: *usize, ii: *usize) void {
+        // Draw projectiles as small cubes
+        for (self.projectiles) |rocket| {
+            if (!rocket.active) continue;
+
+            self.addCube(rocket.pos, 0.2, [4]f32{ 1.0, 0.5, 0.0, 1.0 }, vertices, indices, vi, ii); // Orange rockets
+        }
+
+        // Draw explosions as expanding spheres
+        for (self.explosions) |explosion| {
+            if (!explosion.active) continue;
+
+            const progress = explosion.time / explosion.max_time;
+            const size = progress * 2.0; // Expand over time
+            const alpha = 1.0 - progress; // Fade out over time
+
+            self.addCube(explosion.pos, size, [4]f32{ 1.0, 0.8, 0.0, alpha }, vertices, indices, vi, ii); // Yellow explosions
+        }
+    }
+
+    fn addCube(self: *const Weapons, pos: Vec3, size: f32, color: [4]f32, vertices: []math.Vertex, indices: []u16, vi: *usize, ii: *usize) void {
+        _ = self;
+
+        if (vi.* + 8 > vertices.len or ii.* + 36 > indices.len) return;
+
+        const half = size * 0.5;
+        const base = @as(u16, @intCast(vi.*));
+
+        // Cube vertices
+        const cube_verts = [8][3]f32{
+            .{ pos.v[0] - half, pos.v[1] - half, pos.v[2] - half },
+            .{ pos.v[0] + half, pos.v[1] - half, pos.v[2] - half },
+            .{ pos.v[0] + half, pos.v[1] + half, pos.v[2] - half },
+            .{ pos.v[0] - half, pos.v[1] + half, pos.v[2] - half },
+            .{ pos.v[0] - half, pos.v[1] - half, pos.v[2] + half },
+            .{ pos.v[0] + half, pos.v[1] - half, pos.v[2] + half },
+            .{ pos.v[0] + half, pos.v[1] + half, pos.v[2] + half },
+            .{ pos.v[0] - half, pos.v[1] + half, pos.v[2] + half },
+        };
+
+        // Add vertices
+        for (cube_verts) |vert| {
+            vertices[vi.*] = .{ .pos = vert, .col = color };
+            vi.* += 1;
+        }
+
+        // Cube indices (12 triangles)
+        const cube_indices = [36]u16{
+            // Front face
+            0, 1, 2, 0, 2, 3,
+            // Back face
+            4, 6, 5, 4, 7, 6,
+            // Left face
+            0, 3, 7, 0, 7, 4,
+            // Right face
+            1, 5, 6, 1, 6, 2,
+            // Top face
+            3, 2, 6, 3, 6, 7,
+            // Bottom face
+            0, 4, 5, 0, 5, 1,
+        };
+
+        // Add indices
+        for (cube_indices) |idx| {
+            indices[ii.*] = base + idx;
+            ii.* += 1;
+        }
+    }
 };
+
+// Audio generation for explosions (global function like quake physics)
+pub fn generateExplosionAudio() f32 {
+    var sample: f32 = 0.0;
+    const dt = 1.0 / 44100.0;
+
+    if (explosion_audio_time > 0.0) {
+        const progress = 1.0 - (explosion_audio_time / 0.3);
+
+        // Low frequency rumble
+        const rumble_freq = 60.0 - 30.0 * progress;
+        const rumble = @sin(explosion_audio_phase * 2.0 * std.math.pi * rumble_freq / 44100.0);
+
+        // High frequency crack
+        const crack_freq = 800.0 + 400.0 * progress;
+        const crack = @sin(explosion_audio_phase * 2.0 * std.math.pi * crack_freq / 44100.0);
+
+        // Noise component
+        const noise = (@sin(explosion_audio_phase * 17.3) + @sin(explosion_audio_phase * 23.7)) * 0.3;
+
+        // Envelope (sharp attack, exponential decay)
+        const envelope = @exp(-progress * 8.0);
+
+        // Mix components
+        sample = (rumble * 0.6 + crack * 0.3 + noise * 0.1) * envelope * 0.4;
+
+        explosion_audio_phase += 1.0;
+        explosion_audio_time = @max(0.0, explosion_audio_time - dt);
+    }
+
+    return @max(-1.0, @min(1.0, sample));
+}

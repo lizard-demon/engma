@@ -62,7 +62,7 @@ pub fn Engine(comptime Config: type) type {
         }
 
         pub fn draw(self: *@This()) void {
-            self.gfx.draw(&self.world, self.body.view());
+            self.gfx.draw(&self.world, &self.weapons, self.body.view());
         }
 
         pub fn event(self: *@This(), e: anytype) void {
