@@ -18,6 +18,7 @@ pub const physics = struct {
 };
 
 pub const shader = struct {
+    pub const wire = @import("shader/wire/mod.zig");
     pub const cube = @import("shader/cube/mod.zig");
 };
 

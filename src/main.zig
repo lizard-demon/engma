@@ -3,9 +3,9 @@ const engma = @import("engma");
 const sokol = @import("sokol");
 
 const Config = struct {
-    pub const World = engma.world.greedy;
+    pub const World = engma.world.voxel;
     pub const Gfx = engma.lib.render(engma.shader.cube);
-    pub const Body = engma.physics.quake;
+    pub const Body = engma.physics.basic;
     pub const Keys = engma.lib.input;
     pub const Audio = engma.lib.audio;
 };
