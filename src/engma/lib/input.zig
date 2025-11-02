@@ -2,7 +2,7 @@ const std = @import("std");
 const sokol = @import("sokol");
 
 pub const Keys = struct {
-    bits: packed struct { w: bool = false, a: bool = false, s: bool = false, d: bool = false, space: bool = false, ctrl: bool = false },
+    bits: packed struct { w: bool = false, a: bool = false, s: bool = false, d: bool = false, space: bool = false, ctrl: bool = false, attack: bool = false },
     locked: bool = false,
 
     pub fn init(_: std.mem.Allocator) Keys {
@@ -29,10 +29,17 @@ pub const Keys = struct {
                 },
                 else => {},
             },
-            .MOUSE_DOWN => if (e.mouse_button == .LEFT and !self.locked) {
-                self.locked = true;
-                sokol.app.showMouse(false);
-                sokol.app.lockMouse(true);
+            .MOUSE_DOWN => if (e.mouse_button == .LEFT) {
+                if (!self.locked) {
+                    self.locked = true;
+                    sokol.app.showMouse(false);
+                    sokol.app.lockMouse(true);
+                } else {
+                    self.bits.attack = true;
+                }
+            },
+            .MOUSE_UP => if (e.mouse_button == .LEFT and self.locked) {
+                self.bits.attack = false;
             },
             else => {},
         }
@@ -55,5 +62,8 @@ pub const Keys = struct {
     }
     pub fn crouch(self: *const Keys) bool {
         return self.bits.ctrl;
+    }
+    pub fn attack(self: *const Keys) bool {
+        return self.bits.attack;
     }
 };

@@ -22,6 +22,10 @@ pub const shader = struct {
     pub const cube = @import("shader/cube/mod.zig");
 };
 
+pub const weapons = struct {
+    pub const rocket = @import("weapons/rocket.zig").Weapons;
+};
+
 pub fn Engine(comptime Config: type) type {
     return struct {
         world: Config.World,
@@ -29,6 +33,7 @@ pub fn Engine(comptime Config: type) type {
         body: Config.Body,
         keys: Config.Keys,
         audio: Config.Audio,
+        weapons: Config.Weapons,
         dt: f32,
 
         pub fn init(allocator: std.mem.Allocator) @This() {
@@ -38,6 +43,7 @@ pub fn Engine(comptime Config: type) type {
                 .body = Config.Body.init(allocator),
                 .keys = Config.Keys.init(allocator),
                 .audio = Config.Audio.init(allocator),
+                .weapons = Config.Weapons.init(allocator),
                 .dt = 0.016,
             };
         }
@@ -47,6 +53,10 @@ pub fn Engine(comptime Config: type) type {
             self.keys.tick(self.dt);
             self.world.tick(self.dt);
             self.audio.tick(self.dt);
+
+            // Weapons tick with access to everything
+            self.weapons.tick(&self.body, &self.world, &self.keys, &self.audio, self.dt);
+
             self.body.tick(self.dt);
             self.body.handleMovement(&self.keys, &self.world, &self.audio, self.dt);
         }
@@ -68,6 +78,7 @@ pub fn Engine(comptime Config: type) type {
             self.gfx.deinit(allocator);
             self.body.deinit(allocator);
             self.keys.deinit(allocator);
+            self.weapons.deinit(allocator);
         }
     };
 }

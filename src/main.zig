@@ -8,6 +8,7 @@ const Config = struct {
     pub const Body = engma.physics.quake;
     pub const Keys = engma.lib.input;
     pub const Audio = engma.lib.audio;
+    pub const Weapons = engma.weapons.rocket;
 };
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
