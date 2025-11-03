@@ -2,7 +2,7 @@ pub const lib = struct {
     pub const math = @import("lib/math.zig");
     pub const input = @import("lib/input.zig").Keys;
     pub const render = @import("lib/render.zig").Gfx;
-    pub const audio = @import("lib/audio.zig").Audio;
+    pub const audio = @import("lib/audio/mod.zig").Audio;
     pub const debug = @import("lib/debug.zig").Debug;
 };
 

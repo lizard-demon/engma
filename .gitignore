@@ -1,4 +1,5 @@
 duel/
+bytebeat/
 
 # Zig build artifacts
 zig-out/
