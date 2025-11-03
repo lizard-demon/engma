@@ -43,8 +43,8 @@ pub const Player = struct {
 
     pub fn draw(_: *Player, _: anytype) void {}
 
-    pub fn event(self: *Player, _: anytype, e: anytype) void {
-        if (e.type == .MOUSE_MOVE) {
+    pub fn event(self: *Player, state: anytype, e: anytype) void {
+        if (e.type == .MOUSE_MOVE and state.systems.keys.locked) {
             const sensitivity = 0.008;
             self.yaw += e.mouse_dx * sensitivity;
             self.pitch = std.math.clamp(self.pitch + e.mouse_dy * sensitivity, -cfg.pitch_limit, cfg.pitch_limit);

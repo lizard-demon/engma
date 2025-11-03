@@ -1,6 +1,7 @@
 const std = @import("std");
 const engma = @import("engma");
 const sokol = @import("sokol");
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 const State = struct {
     allocator: std.mem.Allocator,
@@ -14,8 +15,6 @@ const State = struct {
         debug: engma.lib.debug,
     },
 };
-
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var engine: engma.Engine(State) = undefined;
 
 export fn init() void {
@@ -46,6 +45,6 @@ pub fn main() void {
         .event_cb = event,
         .width = 800,
         .height = 600,
-        .window_title = "Meta-Engine",
+        .window_title = "Engma",
     });
 }

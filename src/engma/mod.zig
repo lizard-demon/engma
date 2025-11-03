@@ -25,7 +25,7 @@ pub const shader = struct {
 pub fn Engine(comptime StateType: type) type {
     const systems_field = @typeInfo(StateType).@"struct".fields[2]; // systems is the 3rd field
     const SystemsType = systems_field.type;
-    const system_fields = @typeInfo(SystemsType).@"struct".fields;
+    const systems = @typeInfo(SystemsType).@"struct".fields;
 
     return struct {
         const Self = @This();
@@ -41,8 +41,7 @@ pub fn Engine(comptime StateType: type) type {
             engine.state.allocator = allocator;
             engine.state.dt = 0.016;
 
-            // Initialize all systems with just allocator
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 @field(engine.state.systems, field.name) = field.type.init(allocator);
             }
 
@@ -50,8 +49,7 @@ pub fn Engine(comptime StateType: type) type {
         }
 
         pub fn tick(self: *Self) void {
-            // Update delta time from graphics module if available
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 const module = &@field(self.state.systems, field.name);
                 if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
                     self.state.dt = module.getDeltaTime(self.state);
@@ -59,29 +57,26 @@ pub fn Engine(comptime StateType: type) type {
                 }
             }
 
-            // Call tick on all systems generically
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 @field(self.state.systems, field.name).tick(self.state);
             }
         }
 
         pub fn draw(self: *Self) void {
-            // Call draw on all systems generically
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 @field(self.state.systems, field.name).draw(self.state);
             }
         }
 
         pub fn event(self: *Self, e: anytype) void {
-            // Call event on all systems generically
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 @field(self.state.systems, field.name).event(self.state, e);
             }
         }
 
         pub fn deinit(self: *Self) void {
             // Call deinit on all systems generically
-            inline for (system_fields) |field| {
+            inline for (systems) |field| {
                 @field(self.state.systems, field.name).deinit(self.state);
             }
         }
