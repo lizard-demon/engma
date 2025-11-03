@@ -29,9 +29,7 @@ export fn init() void {
     engine.dt = 0.016;
 
     // Initialize all systems
-    inline for (@typeInfo(@TypeOf(engine.systems)).@"struct".fields) |field| {
-        @field(engine.systems, field.name) = field.type.init(engine.allocator);
-    }
+    engine.call("init");
 }
 
 export fn frame() void {

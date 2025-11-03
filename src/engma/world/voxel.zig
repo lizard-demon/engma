@@ -6,17 +6,16 @@ const SIZE = 16;
 pub const World = struct {
     bits: [SIZE * SIZE * SIZE / 8]u8,
 
-    pub fn init(_: std.mem.Allocator) World {
-        var w = World{ .bits = [_]u8{0} ** (SIZE * SIZE * SIZE / 8) };
+    pub fn init(self: *World, _: anytype) void {
+        self.* = World{ .bits = [_]u8{0} ** (SIZE * SIZE * SIZE / 8) };
         for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
             if (y == 0 or x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1 or
                 (x % 4 == 0 and z % 4 == 0 and y < 3))
             {
                 const i = x + y * SIZE + z * SIZE * SIZE;
-                w.bits[i >> 3] |= @as(u8, 1) << @intCast(i & 7);
+                self.bits[i >> 3] |= @as(u8, 1) << @intCast(i & 7);
             }
         };
-        return w;
     }
 
     pub fn deinit(_: *World, _: std.mem.Allocator) void {}

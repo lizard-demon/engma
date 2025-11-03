@@ -5,8 +5,8 @@ pub const Keys = struct {
     bits: packed struct { w: bool = false, a: bool = false, s: bool = false, d: bool = false, space: bool = false, ctrl: bool = false },
     locked: bool = false,
 
-    pub fn init(_: std.mem.Allocator) Keys {
-        return .{ .bits = .{}, .locked = false };
+    pub fn init(self: *Keys, _: anytype) void {
+        self.* = .{ .bits = .{}, .locked = false };
     }
 
     pub fn deinit(_: *Keys, _: anytype) void {}

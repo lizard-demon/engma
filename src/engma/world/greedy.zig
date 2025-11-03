@@ -8,9 +8,9 @@ const CHUNKS_PER_LAYER = (SIZE * SIZE + BITS_PER_U64 - 1) / BITS_PER_U64;
 pub const World = struct {
     data: [SIZE][CHUNKS_PER_LAYER]u64,
 
-    pub fn init(allocator: std.mem.Allocator) World {
-        var w = World{ .data = [_][CHUNKS_PER_LAYER]u64{[_]u64{0} ** CHUNKS_PER_LAYER} ** SIZE };
-        w.load(allocator, "map.dat") catch {
+    pub fn init(self: *World, engine: anytype) void {
+        self.* = World{ .data = [_][CHUNKS_PER_LAYER]u64{[_]u64{0} ** CHUNKS_PER_LAYER} ** SIZE };
+        self.load(engine.allocator, "map.dat") catch {
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
@@ -18,15 +18,14 @@ pub const World = struct {
                     const idx = y * SIZE + z;
                     const chunk_idx = idx / BITS_PER_U64;
                     const bit_idx: u6 = @intCast(idx % BITS_PER_U64);
-                    w.data[x][chunk_idx] |= @as(u64, 1) << bit_idx;
+                    self.data[x][chunk_idx] |= @as(u64, 1) << bit_idx;
                 }
             };
         };
-        return w;
     }
 
-    pub fn deinit(self: *const World, state: anytype) void {
-        self.save(state.allocator, "map.dat") catch {};
+    pub fn deinit(self: *const World, engine: anytype) void {
+        self.save(engine.allocator, "map.dat") catch {};
     }
 
     pub fn tick(_: *World, _: anytype) void {}

@@ -22,8 +22,8 @@ pub const Player = struct {
         const pitch_limit = std.math.pi / 2.0;
     };
 
-    pub fn init(_: std.mem.Allocator) Player {
-        return .{
+    pub fn init(self: *Player, _: anytype) void {
+        self.* = .{
             .pos = Vec3.new(2, 2, 2),
             .vel = Vec3.zero(),
             .yaw = std.math.pi,

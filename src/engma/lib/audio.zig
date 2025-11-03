@@ -7,14 +7,14 @@ var land_time: f32 = 0;
 var land_phase: f32 = 0;
 
 pub const Audio = struct {
-    pub fn init(_: std.mem.Allocator) Audio {
+    pub fn init(self: *Audio, _: anytype) void {
         sokol.audio.setup(.{
             .sample_rate = 44100,
             .num_channels = 2,
             .buffer_frames = 1024,
             .stream_cb = callback,
         });
-        return .{};
+        self.* = .{};
     }
 
     pub fn deinit(_: *Audio, _: anytype) void {

@@ -15,12 +15,12 @@ pub fn Gfx(comptime ShaderType: type) type {
         proj: math.Mat4,
         shader: sg.Shader,
 
-        pub fn init(_: std.mem.Allocator) @This() {
+        pub fn init(self: *@This(), _: anytype) void {
             if (!sg.isvalid()) {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
             }
-            return .{
+            self.* = .{
                 .pipe = sg.Pipeline{},
                 .bind = sg.Bindings{},
                 .pass = sg.PassAction{},

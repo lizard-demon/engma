@@ -13,8 +13,8 @@ pub const Player = struct {
     prev_ground: bool,
     size: Vec3,
 
-    pub fn init(_: std.mem.Allocator) Player {
-        return .{
+    pub fn init(self: *Player, _: anytype) void {
+        self.* = .{
             .pos = Vec3.new(2, 3, 2),
             .vel = Vec3.zero(),
             .yaw = 0,

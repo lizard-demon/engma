@@ -5,8 +5,8 @@ pub const Debug = struct {
     last_fps_time: f64,
     fps: f32,
 
-    pub fn init(_: std.mem.Allocator) Debug {
-        return .{
+    pub fn init(self: *Debug, _: anytype) void {
+        self.* = .{
             .frame_count = 0,
             .last_fps_time = 0,
             .fps = 0,
