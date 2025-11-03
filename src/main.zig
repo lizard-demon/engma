@@ -6,6 +6,7 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const Engine = struct {
     allocator: std.mem.Allocator,
     dt: f32,
+    event: sokol.app.Event,
     systems: struct {
         world: engma.world.greedy,
         gfx: engma.lib.render(engma.shader.cube),
@@ -26,6 +27,7 @@ var engine: Engine = undefined;
 export fn init() void {
     engine.allocator = gpa.allocator();
     engine.dt = 0.016;
+    engine.event = undefined;
     engine.call("init");
 }
 
@@ -37,14 +39,12 @@ export fn frame() void {
 
 export fn cleanup() void {
     engine.call("deinit");
-
     _ = gpa.deinit();
 }
 
 export fn event(e: [*c]const sokol.app.Event) void {
-    inline for (@typeInfo(@TypeOf(engine.systems)).@"struct".fields) |field| {
-        @call(.auto, @field(@TypeOf(@field(engine.systems, field.name)), "event"), .{&@field(engine.systems, field.name)} ++ .{ engine, e.* });
-    }
+    engine.event = e.*;
+    engine.call("event");
 }
 
 pub fn main() void {

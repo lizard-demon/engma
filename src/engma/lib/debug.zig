@@ -31,5 +31,5 @@ pub const Debug = struct {
     }
 
     pub fn draw(_: *Debug, _: anytype) void {}
-    pub fn event(_: *Debug, _: anytype, _: anytype) void {}
+    pub fn event(_: *Debug, _: anytype) void {}
 };

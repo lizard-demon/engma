@@ -95,7 +95,8 @@ pub const Player = struct {
         } };
     }
 
-    pub fn event(self: *Player, e: anytype) void {
+    pub fn event(self: *Player, engine: anytype) void {
+        const e = engine.event;
         if (e.type == .MOUSE_MOVE) {
             const sensitivity = 0.002;
             self.yaw += e.mouse_dx * sensitivity;

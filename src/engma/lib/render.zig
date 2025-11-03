@@ -102,6 +102,6 @@ pub fn Gfx(comptime ShaderType: type) type {
         }
 
         pub fn tick(_: *@This(), _: anytype) void {}
-        pub fn event(_: *@This(), _: anytype, _: anytype) void {}
+        pub fn event(_: *@This(), _: anytype) void {}
     };
 }

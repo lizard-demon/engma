@@ -30,7 +30,7 @@ pub const World = struct {
 
     pub fn tick(_: *World, _: anytype) void {}
     pub fn draw(_: *World, _: anytype) void {}
-    pub fn event(_: *World, _: anytype, _: anytype) void {}
+    pub fn event(_: *World, _: anytype) void {}
 
     inline fn getBit(self: *const World, x: u32, y: u32, z: u32) bool {
         const idx = y * SIZE + z;

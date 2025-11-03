@@ -23,7 +23,7 @@ pub const Audio = struct {
 
     pub fn tick(_: *Audio, _: anytype) void {}
     pub fn draw(_: *Audio, _: anytype) void {}
-    pub fn event(_: *Audio, _: anytype, _: anytype) void {}
+    pub fn event(_: *Audio, _: anytype) void {}
 
     pub fn jump(_: Audio) void {
         jump_time = 0.15;

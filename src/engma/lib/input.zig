@@ -13,7 +13,8 @@ pub const Keys = struct {
     pub fn tick(_: *Keys, _: anytype) void {}
     pub fn draw(_: *Keys, _: anytype) void {}
 
-    pub fn event(self: *Keys, _: anytype, e: sokol.app.Event) void {
+    pub fn event(self: *Keys, engine: anytype) void {
+        const e = engine.event;
         const down = e.type == .KEY_DOWN;
         switch (e.type) {
             .KEY_DOWN, .KEY_UP => switch (e.key_code) {
