@@ -97,73 +97,73 @@ pub fn Engine(comptime config: anytype) type {
         }
 
         pub fn tick(self: *Self) void {
-            // Create a config instance with the current state
-            var config_instance = self.state;
-            config_instance.allocator = self.allocator;
-            config_instance.dt = self.dt;
+            // Create a state instance with the current state
+            var state_instance = self.state;
+            state_instance.allocator = self.allocator;
+            state_instance.dt = self.dt;
 
             // Update delta time from graphics module if available
             inline for (fields) |field| {
-                const module = &@field(config_instance, field.name);
+                const module = &@field(state_instance, field.name);
                 if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
-                    self.dt = module.getDeltaTime(config_instance);
-                    config_instance.dt = self.dt;
+                    self.dt = module.getDeltaTime(state_instance);
+                    state_instance.dt = self.dt;
                     break;
                 }
             }
 
             // Call tick on all modules generically
             inline for (fields) |field| {
-                @field(config_instance, field.name).tick(config_instance);
+                @field(state_instance, field.name).tick(state_instance);
             }
 
             // Copy back the modified state
-            self.state = config_instance;
+            self.state = state_instance;
         }
 
         pub fn draw(self: *Self) void {
-            // Create a config instance with the current state
-            var config_instance = self.state;
-            config_instance.allocator = self.allocator;
-            config_instance.dt = self.dt;
+            // Create a state instance with the current state
+            var state_instance = self.state;
+            state_instance.allocator = self.allocator;
+            state_instance.dt = self.dt;
 
             // Call draw on all modules generically
             inline for (fields) |field| {
-                @field(config_instance, field.name).draw(config_instance);
+                @field(state_instance, field.name).draw(state_instance);
             }
 
             // Copy back the modified state
-            self.state = config_instance;
+            self.state = state_instance;
         }
 
         pub fn event(self: *Self, e: anytype) void {
-            // Create a config instance with the current state
-            var config_instance = self.state;
-            config_instance.allocator = self.allocator;
-            config_instance.dt = self.dt;
+            // Create a state instance with the current state
+            var state_instance = self.state;
+            state_instance.allocator = self.allocator;
+            state_instance.dt = self.dt;
 
             // Call event on all modules generically
             inline for (fields) |field| {
-                @field(config_instance, field.name).event(config_instance, e);
+                @field(state_instance, field.name).event(state_instance, e);
             }
 
             // Copy back the modified state
-            self.state = config_instance;
+            self.state = state_instance;
         }
 
         pub fn deinit(self: *Self) void {
-            // Create a config instance with the current state
-            var config_instance = self.state;
-            config_instance.allocator = self.allocator;
-            config_instance.dt = self.dt;
+            // Create a state instance with the current state
+            var state_instance = self.state;
+            state_instance.allocator = self.allocator;
+            state_instance.dt = self.dt;
 
             // Call deinit on all modules generically
             inline for (fields) |field| {
-                @field(config_instance, field.name).deinit(config_instance);
+                @field(state_instance, field.name).deinit(state_instance);
             }
 
             // Copy back the modified state
-            self.state = config_instance;
+            self.state = state_instance;
         }
     };
 }

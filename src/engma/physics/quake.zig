@@ -36,9 +36,9 @@ pub const Player = struct {
 
     pub fn deinit(_: *Player, _: anytype) void {}
 
-    pub fn tick(self: *Player, config: anytype) void {
+    pub fn tick(self: *Player, state: anytype) void {
         self.prev_ground = self.ground;
-        self.handleMovement(config);
+        self.handleMovement(state);
     }
 
     pub fn draw(_: *Player, _: anytype) void {}
@@ -51,19 +51,19 @@ pub const Player = struct {
         }
     }
 
-    pub fn handleMovement(self: *Player, config: anytype) void {
+    pub fn handleMovement(self: *Player, state: anytype) void {
         // Movement input
         var dir = Vec3.zero();
-        const fw: f32 = if (config.Keys.forward()) 1 else if (config.Keys.back()) -1 else 0;
-        const st: f32 = if (config.Keys.right()) 1 else if (config.Keys.left()) -1 else 0;
+        const fw: f32 = if (state.Keys.forward()) 1 else if (state.Keys.back()) -1 else 0;
+        const st: f32 = if (state.Keys.right()) 1 else if (state.Keys.left()) -1 else 0;
 
         if (st != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
         if (fw != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
 
-        Update.movement(self, dir, config.dt);
+        Update.movement(self, dir, state.dt);
 
         // Crouch handling
-        const want_crouch = config.Keys.crouch();
+        const want_crouch = state.Keys.crouch();
         if (self.crouch and !want_crouch) {
             const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
             const test_pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
@@ -72,7 +72,7 @@ pub const Player = struct {
                 .max = Vec3.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
             };
 
-            if (!checkStatic(&config.World, standing_box.at(test_pos))) {
+            if (!checkStatic(&state.World, standing_box.at(test_pos))) {
                 self.pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
                 self.crouch = false;
             }
@@ -81,13 +81,13 @@ pub const Player = struct {
         }
 
         // Jump
-        if (config.Keys.jump() and self.ground) {
+        if (state.Keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            config.Audio.jump();
+            state.Audio.jump();
         }
 
-        Update.physics(self, &config.World, &config.Audio, config.dt);
+        Update.physics(self, &state.World, &state.Audio, state.dt);
     }
 
     const Update = struct {

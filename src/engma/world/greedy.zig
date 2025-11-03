@@ -25,8 +25,8 @@ pub const World = struct {
         return w;
     }
 
-    pub fn deinit(self: *const World, config: anytype) void {
-        self.save(config.allocator, "map.dat") catch {};
+    pub fn deinit(self: *const World, state: anytype) void {
+        self.save(state.allocator, "map.dat") catch {};
     }
 
     pub fn tick(_: *World, _: anytype) void {}

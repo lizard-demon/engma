@@ -30,12 +30,12 @@ pub fn Gfx(comptime ShaderType: type) type {
             };
         }
 
-        pub fn draw(self: *@This(), config: anytype) void {
+        pub fn draw(self: *@This(), state: anytype) void {
             if (self.count == 0) {
                 self.cleanup();
                 var verts: [32768]math.Vertex = undefined;
                 var idx: [49152]u16 = undefined;
-                const mesh = config.World.mesh(&verts, &idx);
+                const mesh = state.World.mesh(&verts, &idx);
 
                 var layout = sg.VertexLayoutState{};
                 layout.attrs[0].format = .FLOAT3;
@@ -63,7 +63,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.applyPipeline(self.pipe);
             sg.applyBindings(self.bind);
 
-            const mvp = math.Mat4.mul(self.proj, config.Body.view());
+            const mvp = math.Mat4.mul(self.proj, state.Body.view());
             sg.applyUniforms(0, sg.asRange(&mvp));
             sg.draw(0, self.count, 1);
 
