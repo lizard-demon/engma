@@ -11,7 +11,7 @@ const Engine = struct {
     systems: struct {
         world: engma.world.greedy,
         gfx: engma.lib.render(engma.shader.cube),
-        body: engma.physics.quake,
+        body: engma.player.basic,
         keys: engma.lib.input,
         audio: engma.lib.audio,
         debug: engma.lib.debug,

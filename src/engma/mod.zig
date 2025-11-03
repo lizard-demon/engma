@@ -12,8 +12,12 @@ pub const world = struct {
 };
 
 pub const physics = struct {
-    pub const quake = @import("physics/quake.zig").Player;
-    pub const basic = @import("physics/basic.zig").Player;
+    // Legacy physics namespace - use engma.player instead
+};
+
+pub const player = struct {
+    pub const quake = @import("player/quake/mod.zig").Player;
+    pub const basic = @import("player/basic/mod.zig").Player;
 };
 
 pub const shader = struct {
