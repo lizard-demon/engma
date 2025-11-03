@@ -2,20 +2,24 @@ const std = @import("std");
 const engma = @import("engma");
 const sokol = @import("sokol");
 
-const config = .{
-    .World = engma.world.greedy,
-    .Gfx = engma.lib.render(engma.shader.cube),
-    .Body = engma.physics.quake,
-    .Keys = engma.lib.input,
-    .Audio = engma.lib.audio,
-    .Debug = engma.lib.debug,
+const State = struct {
+    allocator: std.mem.Allocator,
+    dt: f32,
+    systems: struct {
+        world: engma.world.greedy,
+        gfx: engma.lib.render(engma.shader.cube),
+        body: engma.physics.quake,
+        keys: engma.lib.input,
+        audio: engma.lib.audio,
+        debug: engma.lib.debug,
+    },
 };
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var engine: engma.Engine(config) = undefined;
+var engine: engma.Engine(State) = undefined;
 
 export fn init() void {
-    engine = engma.Engine(config).init(gpa.allocator());
+    engine = engma.Engine(State).init(gpa.allocator());
 }
 
 export fn frame() void {

@@ -54,8 +54,8 @@ pub const Player = struct {
     pub fn handleMovement(self: *Player, state: anytype) void {
         // Movement input
         var dir = Vec3.zero();
-        const fw: f32 = if (state.Keys.forward()) 1 else if (state.Keys.back()) -1 else 0;
-        const st: f32 = if (state.Keys.right()) 1 else if (state.Keys.left()) -1 else 0;
+        const fw: f32 = if (state.systems.keys.forward()) 1 else if (state.systems.keys.back()) -1 else 0;
+        const st: f32 = if (state.systems.keys.right()) 1 else if (state.systems.keys.left()) -1 else 0;
 
         if (st != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
         if (fw != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
@@ -63,7 +63,7 @@ pub const Player = struct {
         Update.movement(self, dir, state.dt);
 
         // Crouch handling
-        const want_crouch = state.Keys.crouch();
+        const want_crouch = state.systems.keys.crouch();
         if (self.crouch and !want_crouch) {
             const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
             const test_pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
@@ -72,7 +72,7 @@ pub const Player = struct {
                 .max = Vec3.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
             };
 
-            if (!checkStatic(&state.World, standing_box.at(test_pos))) {
+            if (!checkStatic(&state.systems.world, standing_box.at(test_pos))) {
                 self.pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
                 self.crouch = false;
             }
@@ -81,13 +81,13 @@ pub const Player = struct {
         }
 
         // Jump
-        if (state.Keys.jump() and self.ground) {
+        if (state.systems.keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            state.Audio.jump();
+            state.systems.audio.jump();
         }
 
-        Update.physics(self, &state.World, &state.Audio, state.dt);
+        Update.physics(self, &state.systems.world, &state.systems.audio, state.dt);
     }
 
     const Update = struct {
