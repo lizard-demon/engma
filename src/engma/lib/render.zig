@@ -15,7 +15,7 @@ pub fn Gfx(comptime ShaderType: type) type {
         proj: math.Mat4,
         shader: sg.Shader,
 
-        pub fn init(_: anytype) @This() {
+        pub fn init(_: std.mem.Allocator) @This() {
             if (!sg.isvalid()) {
                 sg.setup(.{ .environment = sokol.glue.environment() });
                 simgui.setup(.{});
@@ -30,12 +30,12 @@ pub fn Gfx(comptime ShaderType: type) type {
             };
         }
 
-        pub fn draw(self: *@This(), engine: anytype) void {
+        pub fn draw(self: *@This(), _: std.mem.Allocator, config: anytype) void {
             if (self.count == 0) {
                 self.cleanup();
                 var verts: [32768]math.Vertex = undefined;
                 var idx: [49152]u16 = undefined;
-                const mesh = engine.world.mesh(&verts, &idx);
+                const mesh = config.state.World.mesh(&verts, &idx);
 
                 var layout = sg.VertexLayoutState{};
                 layout.attrs[0].format = .FLOAT3;
@@ -63,7 +63,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.applyPipeline(self.pipe);
             sg.applyBindings(self.bind);
 
-            const mvp = math.Mat4.mul(self.proj, engine.body.view());
+            const mvp = math.Mat4.mul(self.proj, config.state.Body.view());
             sg.applyUniforms(0, sg.asRange(&mvp));
             sg.draw(0, self.count, 1);
 
@@ -85,7 +85,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.commit();
         }
 
-        pub fn getDeltaTime(_: *@This(), _: anytype) f32 {
+        pub fn getDeltaTime(_: *@This(), _: std.mem.Allocator, _: anytype) f32 {
             return @floatCast(sapp.frameDuration());
         }
 
@@ -99,8 +99,11 @@ pub fn Gfx(comptime ShaderType: type) type {
             }
         }
 
-        pub fn deinit(self: *@This(), _: anytype) void {
+        pub fn deinit(self: *@This(), _: std.mem.Allocator, _: anytype) void {
             self.cleanup();
         }
+
+        pub fn tick(_: *@This(), _: std.mem.Allocator, _: anytype) void {}
+        pub fn event(_: *@This(), _: std.mem.Allocator, _: anytype, _: anytype) void {}
     };
 }

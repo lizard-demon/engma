@@ -22,7 +22,7 @@ pub const Player = struct {
         const pitch_limit = std.math.pi / 2.0;
     };
 
-    pub fn init(_: anytype) Player {
+    pub fn init(_: std.mem.Allocator) Player {
         return .{
             .pos = Vec3.new(2, 2, 2),
             .vel = Vec3.zero(),
@@ -34,25 +34,36 @@ pub const Player = struct {
         };
     }
 
-    pub fn deinit(_: *Player, _: anytype) void {}
+    pub fn deinit(_: *Player, _: std.mem.Allocator, _: anytype) void {}
 
-    pub fn tick(self: *Player, _: anytype) void {
+    pub fn tick(self: *Player, _: std.mem.Allocator, config: anytype) void {
         self.prev_ground = self.ground;
+        self.handleMovement(config);
     }
 
-    pub fn handleMovement(self: *Player, engine: anytype) void {
+    pub fn draw(_: *Player, _: std.mem.Allocator, _: anytype) void {}
+
+    pub fn event(self: *Player, _: std.mem.Allocator, _: anytype, e: anytype) void {
+        if (e.type == .MOUSE_MOVE) {
+            const sensitivity = 0.008;
+            self.yaw += e.mouse_dx * sensitivity;
+            self.pitch = std.math.clamp(self.pitch + e.mouse_dy * sensitivity, -cfg.pitch_limit, cfg.pitch_limit);
+        }
+    }
+
+    pub fn handleMovement(self: *Player, config: anytype) void {
         // Movement input
         var dir = Vec3.zero();
-        const fw: f32 = if (engine.keys.forward()) 1 else if (engine.keys.back()) -1 else 0;
-        const st: f32 = if (engine.keys.right()) 1 else if (engine.keys.left()) -1 else 0;
+        const fw: f32 = if (config.state.Keys.forward()) 1 else if (config.state.Keys.back()) -1 else 0;
+        const st: f32 = if (config.state.Keys.right()) 1 else if (config.state.Keys.left()) -1 else 0;
 
         if (st != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
         if (fw != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
 
-        Update.movement(self, dir, engine.dt);
+        Update.movement(self, dir, config.dt);
 
         // Crouch handling
-        const want_crouch = engine.keys.crouch();
+        const want_crouch = config.state.Keys.crouch();
         if (self.crouch and !want_crouch) {
             const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
             const test_pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
@@ -61,7 +72,7 @@ pub const Player = struct {
                 .max = Vec3.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
             };
 
-            if (!checkStatic(&engine.world, standing_box.at(test_pos))) {
+            if (!checkStatic(&config.state.World, standing_box.at(test_pos))) {
                 self.pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
                 self.crouch = false;
             }
@@ -70,13 +81,13 @@ pub const Player = struct {
         }
 
         // Jump
-        if (engine.keys.jump() and self.ground) {
+        if (config.state.Keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            engine.audio.jump();
+            config.state.Audio.jump();
         }
 
-        Update.physics(self, &engine.world, &engine.audio, engine.dt);
+        Update.physics(self, &config.state.World, &config.state.Audio, config.dt);
     }
 
     const Update = struct {
@@ -146,14 +157,6 @@ pub const Player = struct {
             sy,               -cy * sp,                            cy * cp,                            0,
             -x * cy - z * sy, -x * sy * sp - y * cp + z * cy * sp, x * sy * cp - y * sp - z * cy * cp, 1,
         } };
-    }
-
-    pub fn event(self: *Player, _: anytype, e: anytype) void {
-        if (e.type == .MOUSE_MOVE) {
-            const sensitivity = 0.008;
-            self.yaw += e.mouse_dx * sensitivity;
-            self.pitch = std.math.clamp(self.pitch + e.mouse_dy * sensitivity, -cfg.pitch_limit, cfg.pitch_limit);
-        }
     }
 };
 

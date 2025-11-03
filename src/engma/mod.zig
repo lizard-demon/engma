@@ -5,6 +5,7 @@ pub const lib = struct {
     pub const input = @import("lib/input.zig").Keys;
     pub const render = @import("lib/render.zig").Gfx;
     pub const audio = @import("lib/audio.zig").Audio;
+    pub const debug = @import("lib/debug.zig").Debug;
 };
 
 pub const world = struct {
@@ -21,65 +22,91 @@ pub const shader = struct {
     pub const cube = @import("shader/cube/mod.zig");
 };
 
-pub fn Engine(comptime Config: type) type {
+pub fn Engine(comptime config: anytype) type {
+    const ConfigType = @TypeOf(config);
+    const fields = @typeInfo(ConfigType).@"struct".fields;
+
+    // Create a state type that holds instances instead of types
+    const StateType = blk: {
+        var state_fields: [fields.len]std.builtin.Type.StructField = undefined;
+        for (fields, 0..) |field, i| {
+            const ModuleType = @field(config, field.name);
+            state_fields[i] = .{
+                .name = field.name,
+                .type = ModuleType,
+                .default_value_ptr = null,
+                .is_comptime = false,
+                .alignment = @alignOf(ModuleType),
+            };
+        }
+        break :blk @Type(.{
+            .@"struct" = .{
+                .layout = .auto,
+                .fields = state_fields[0..fields.len],
+                .decls = &.{},
+                .is_tuple = false,
+            },
+        });
+    };
+
     return struct {
         const Self = @This();
 
         allocator: std.mem.Allocator,
-        world: Config.World,
-        gfx: Config.Gfx,
-        body: Config.Body,
-        keys: Config.Keys,
-        audio: Config.Audio,
         dt: f32,
+        state: StateType,
 
         pub fn init(allocator: std.mem.Allocator) Self {
             var engine = Self{
                 .allocator = allocator,
-                .world = undefined,
-                .gfx = undefined,
-                .body = undefined,
-                .keys = undefined,
-                .audio = undefined,
                 .dt = 0.016,
+                .state = undefined,
             };
 
-            // Initialize all modules with access to the entire engine state
-            engine.world = Config.World.init(&engine);
-            engine.gfx = Config.Gfx.init(&engine);
-            engine.body = Config.Body.init(&engine);
-            engine.keys = Config.Keys.init(&engine);
-            engine.audio = Config.Audio.init(&engine);
+            // Initialize all modules with just allocator
+            inline for (fields) |field| {
+                const ModuleType = @field(config, field.name);
+                @field(engine.state, field.name) = ModuleType.init(allocator);
+            }
 
             return engine;
         }
 
         pub fn tick(self: *Self) void {
-            self.dt = self.gfx.getDeltaTime(self);
-            self.keys.tick(self);
-            self.world.tick(self);
-            self.audio.tick(self);
-            self.body.tick(self);
-            self.body.handleMovement(self);
+            // Update delta time from graphics module if available
+            inline for (fields) |field| {
+                const module = &@field(self.state, field.name);
+                if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
+                    self.dt = module.getDeltaTime(self.allocator, self);
+                    break;
+                }
+            }
+
+            // Call tick on all modules generically
+            inline for (fields) |field| {
+                @field(self.state, field.name).tick(self.allocator, self);
+            }
         }
 
         pub fn draw(self: *Self) void {
-            self.gfx.draw(self);
+            // Call draw on all modules generically
+            inline for (fields) |field| {
+                @field(self.state, field.name).draw(self.allocator, self);
+            }
         }
 
         pub fn event(self: *Self, e: anytype) void {
-            self.keys.event(self, e);
-            if (e.type == .MOUSE_MOVE and self.keys.locked) {
-                self.body.event(self, e);
+            // Call event on all modules generically
+            inline for (fields) |field| {
+                @field(self.state, field.name).event(self.allocator, self, e);
             }
         }
 
         pub fn deinit(self: *Self) void {
-            self.world.deinit(self);
-            self.audio.deinit(self);
-            self.gfx.deinit(self);
-            self.body.deinit(self);
-            self.keys.deinit(self);
+            // Call deinit on all modules generically
+            inline for (fields) |field| {
+                @field(self.state, field.name).deinit(self.allocator, self);
+            }
         }
     };
 }
