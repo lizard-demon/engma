@@ -18,8 +18,10 @@ pub const World = struct {
         };
     }
 
-    pub fn deinit(_: *World, _: std.mem.Allocator) void {}
-    pub fn tick(_: *World, _: f32) void {}
+    pub fn deinit(_: *World, _: anytype) void {}
+    pub fn tick(_: *World, _: anytype) void {}
+    pub fn draw(_: *World, _: anytype) void {}
+    pub fn event(_: *World, _: anytype) void {}
 
     pub fn get(self: *const World, x: i32, y: i32, z: i32) bool {
         if (@as(u32, @bitCast(x | y | z)) >= SIZE) return false;

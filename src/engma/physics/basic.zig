@@ -25,17 +25,29 @@ pub const Player = struct {
         };
     }
 
-    pub fn deinit(_: *Player, _: std.mem.Allocator) void {}
+    pub fn deinit(_: *Player, _: anytype) void {}
 
-    pub fn tick(self: *Player, _: f32) void {
+    pub fn tick(self: *Player, state: anytype) void {
         self.prev_ground = self.ground;
+        self.handleMovement(state);
     }
 
-    pub fn handleMovement(self: *Player, keys: anytype, world: anytype, _: anytype, dt: f32) void {
+    pub fn draw(_: *Player, _: anytype) void {}
+    pub fn event(self: *Player, engine: anytype) void {
+        const e = engine.event;
+        if (e.type == .MOUSE_MOVE and engine.systems.keys.locked) {
+            const sensitivity = 0.002;
+            self.yaw += e.mouse_dx * sensitivity;
+            self.pitch = std.math.clamp(self.pitch + e.mouse_dy * sensitivity, -1.5, 1.5);
+        }
+    }
+
+    pub fn handleMovement(self: *Player, state: anytype) void {
+        const dt = state.dt;
         // Movement input
         const s, const c = .{ @sin(self.yaw), @cos(self.yaw) };
-        const fw: f32 = if (keys.forward()) 1 else if (keys.back()) -1 else 0;
-        const st: f32 = if (keys.right()) 1 else if (keys.left()) -1 else 0;
+        const fw: f32 = if (state.systems.keys.forward()) 1 else if (state.systems.keys.back()) -1 else 0;
+        const st: f32 = if (state.systems.keys.right()) 1 else if (state.systems.keys.left()) -1 else 0;
 
         // Apply forces
         const move_force = 6.0;
@@ -44,7 +56,7 @@ pub const Player = struct {
 
         self.vel = Vec3.new((s * fw + c * st) * move_force, self.vel.v[1] + gravity * dt, (-c * fw + s * st) * move_force);
 
-        if (keys.jump() and self.ground) {
+        if (state.systems.keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], jump_force, self.vel.v[2]);
         }
 
@@ -57,7 +69,7 @@ pub const Player = struct {
         inline for (.{ 0, 2, 1 }) |axis| {
             self.pos = Vec3.new(if (axis == 0) self.pos.v[0] + self.vel.v[0] * dt else self.pos.v[0], if (axis == 1) self.pos.v[1] + self.vel.v[1] * dt else self.pos.v[1], if (axis == 2) self.pos.v[2] + self.vel.v[2] * dt else self.pos.v[2]);
 
-            if (self.checkCollision(world)) {
+            if (self.checkCollision(&state.systems.world)) {
                 // Revert position
                 self.pos = Vec3.new(if (axis == 0) old_pos.v[0] else self.pos.v[0], if (axis == 1) old_pos.v[1] else self.pos.v[1], if (axis == 2) old_pos.v[2] else self.pos.v[2]);
 
@@ -93,15 +105,6 @@ pub const Player = struct {
             sy,                                     -cy * sp,                                                             cy * cp,                                                             0,
             -eye_pos.v[0] * cy - eye_pos.v[2] * sy, -eye_pos.v[0] * sy * sp - eye_pos.v[1] * cp + eye_pos.v[2] * cy * sp, eye_pos.v[0] * sy * cp - eye_pos.v[1] * sp - eye_pos.v[2] * cy * cp, 1,
         } };
-    }
-
-    pub fn event(self: *Player, engine: anytype) void {
-        const e = engine.event;
-        if (e.type == .MOUSE_MOVE) {
-            const sensitivity = 0.002;
-            self.yaw += e.mouse_dx * sensitivity;
-            self.pitch = std.math.clamp(self.pitch + e.mouse_dy * sensitivity, -1.5, 1.5);
-        }
     }
 
     fn box(self: *const Player) BBox {
