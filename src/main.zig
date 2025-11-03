@@ -3,7 +3,7 @@ const engma = @import("engma");
 const sokol = @import("sokol");
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-const State = struct {
+const Engine = struct {
     allocator: std.mem.Allocator,
     dt: f32,
     systems: struct {
@@ -14,38 +14,38 @@ const State = struct {
         audio: engma.lib.audio,
         debug: engma.lib.debug,
     },
-    fn call(systems: anytype, comptime method: []const u8, args: anytype) void {
-        inline for (@typeInfo(@TypeOf(systems.*)).@"struct".fields) |field| {
-            @call(.auto, @field(@TypeOf(@field(systems, field.name)), method), .{&@field(systems, field.name)} ++ args);
+    fn call(self: *Engine, comptime method: []const u8) void {
+        inline for (@typeInfo(@TypeOf(self.systems)).@"struct".fields) |field| {
+            @call(.auto, @field(@TypeOf(@field(self.systems, field.name)), method), .{&@field(self.systems, field.name)} ++ .{self.*});
         }
     }
 };
 
-var state: State = undefined;
+var engine: Engine = undefined;
 
 export fn init() void {
     // Initialize state fields
-    state.allocator = gpa.allocator();
-    state.dt = 0.016;
+    engine.allocator = gpa.allocator();
+    engine.dt = 0.016;
 
     // Initialize all systems
-    inline for (@typeInfo(@TypeOf(state.systems)).@"struct".fields) |field| {
-        @field(state.systems, field.name) = field.type.init(state.allocator);
+    inline for (@typeInfo(@TypeOf(engine.systems)).@"struct".fields) |field| {
+        @field(engine.systems, field.name) = field.type.init(engine.allocator);
     }
 }
 
 export fn frame() void {
     // Update delta time
-    state.dt = @floatCast(sokol.app.frameDuration());
+    engine.dt = @floatCast(sokol.app.frameDuration());
 
     // Tick and draw all systems
-    State.call(&state.systems, "tick", .{state});
-    State.call(&state.systems, "draw", .{state});
+    engine.call("tick");
+    engine.call("draw");
 }
 
 export fn cleanup() void {
     // Deinitialize all systems
-    State.call(&state.systems, "deinit", .{state});
+    engine.call("deinit");
 
     _ = gpa.deinit();
     sokol.imgui.shutdown();
@@ -54,7 +54,9 @@ export fn cleanup() void {
 
 export fn event(e: [*c]const sokol.app.Event) void {
     // Handle events for all systems
-    State.call(&state.systems, "event", .{ state, e.* });
+    inline for (@typeInfo(@TypeOf(engine.systems)).@"struct".fields) |field| {
+        @call(.auto, @field(@TypeOf(@field(engine.systems, field.name)), "event"), .{&@field(engine.systems, field.name)} ++ .{ engine, e.* });
+    }
 }
 
 pub fn main() void {
