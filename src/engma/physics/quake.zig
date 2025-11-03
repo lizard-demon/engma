@@ -85,7 +85,8 @@ pub const Player = struct {
         if (state.systems.keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            state.systems.audio.jump();
+            // Jump sound: rising frequency, quick decay
+            state.systems.audio.playSound(0.15, 220.0, 440.0, 8.0, 0.3, 0.0);
         }
 
         Update.physics(self, &state.systems.world, &state.systems.audio, state.dt);
@@ -138,7 +139,8 @@ pub const Player = struct {
             self.ground = r.hit and @abs(r.vel.v[1]) < cfg.phys.ground_thresh;
 
             if (self.ground and !self.prev_ground and self.vel.v[1] < -2) {
-                audio.land();
+                // Land sound: falling frequency with noise
+                audio.playSound(0.08, 150.0, 80.0, 12.0, 0.2, 0.1);
             }
 
             if (self.pos.v[1] < 0 or self.pos.v[1] > 64) {

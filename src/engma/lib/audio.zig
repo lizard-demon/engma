@@ -1,10 +1,29 @@
 const std = @import("std");
 const sokol = @import("sokol");
 
-var jump_time: f32 = 0;
-var jump_phase: f32 = 0;
-var land_time: f32 = 0;
-var land_phase: f32 = 0;
+const MAX_SOUNDS = 8;
+
+const Sound = struct {
+    time: f32,
+    phase: f32,
+    duration: f32,
+    frequency_start: f32,
+    frequency_end: f32,
+    envelope_decay: f32,
+    volume: f32,
+    noise: f32,
+};
+
+var sounds: [MAX_SOUNDS]Sound = [_]Sound{.{
+    .time = 0,
+    .phase = 0,
+    .duration = 0,
+    .frequency_start = 0,
+    .frequency_end = 0,
+    .envelope_decay = 0,
+    .volume = 0,
+    .noise = 0,
+}} ** MAX_SOUNDS;
 
 pub const Audio = struct {
     pub fn init(self: *Audio, _: anytype) void {
@@ -25,14 +44,31 @@ pub const Audio = struct {
     pub fn draw(_: *Audio, _: anytype) void {}
     pub fn event(_: *Audio, _: anytype) void {}
 
-    pub fn jump(_: Audio) void {
-        jump_time = 0.15;
-        jump_phase = 0;
-    }
-
-    pub fn land(_: Audio) void {
-        land_time = 0.08;
-        land_phase = 0;
+    pub fn playSound(
+        _: Audio,
+        duration: f32,
+        frequency_start: f32,
+        frequency_end: f32,
+        envelope_decay: f32,
+        volume: f32,
+        noise: f32,
+    ) void {
+        // Find an available sound slot
+        for (&sounds) |*sound| {
+            if (sound.time <= 0) {
+                sound.* = .{
+                    .time = duration,
+                    .phase = 0,
+                    .duration = duration,
+                    .frequency_start = frequency_start,
+                    .frequency_end = frequency_end,
+                    .envelope_decay = envelope_decay,
+                    .volume = volume,
+                    .noise = noise,
+                };
+                break;
+            }
+        }
     }
 };
 
@@ -44,25 +80,18 @@ fn callback(buffer: [*c]f32, num_frames: i32, num_channels: i32) callconv(.c) vo
     for (0..frames) |i| {
         var sample: f32 = 0.0;
 
-        if (jump_time > 0.0) {
-            const progress = 1.0 - (jump_time / 0.15);
-            const frequency = 220.0 + 220.0 * progress;
-            const envelope = @exp(-progress * 8.0);
-            sample += @sin(jump_phase * 2.0 * std.math.pi) * envelope * 0.3;
-            jump_phase += frequency / 44100.0;
-            jump_phase = @mod(jump_phase, 1.0);
-            jump_time = @max(0.0, jump_time - dt);
-        }
+        for (&sounds) |*sound| {
+            if (sound.time > 0.0) {
+                const progress = 1.0 - (sound.time / sound.duration);
+                const frequency = sound.frequency_start + (sound.frequency_end - sound.frequency_start) * progress;
+                const envelope = @exp(-progress * sound.envelope_decay);
+                const noise_sample = if (sound.noise > 0) @sin(sound.phase * 13.7) * sound.noise else 0;
 
-        if (land_time > 0.0) {
-            const progress = 1.0 - (land_time / 0.08);
-            const frequency = 150.0 - 70.0 * progress;
-            const envelope = @exp(-progress * 12.0);
-            const noise = @sin(land_phase * 13.7) * 0.1;
-            sample += (@sin(land_phase * 2.0 * std.math.pi) + noise) * envelope * 0.2;
-            land_phase += frequency / 44100.0;
-            land_phase = @mod(land_phase, 1.0);
-            land_time = @max(0.0, land_time - dt);
+                sample += (@sin(sound.phase * 2.0 * std.math.pi) + noise_sample) * envelope * sound.volume;
+                sound.phase += frequency / 44100.0;
+                sound.phase = @mod(sound.phase, 1.0);
+                sound.time = @max(0.0, sound.time - dt);
+            }
         }
 
         sample = @max(-1.0, @min(1.0, sample));
