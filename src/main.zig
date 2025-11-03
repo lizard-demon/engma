@@ -3,9 +3,10 @@ const engma = @import("engma");
 const sokol = @import("sokol");
 
 const Config = struct {
+    pub const Allocator = std.mem.Allocator;
     pub const World = engma.world.greedy;
     pub const Gfx = engma.lib.render(engma.shader.cube);
-    pub const Body = engma.physics.basic;
+    pub const Body = engma.physics.quake;
     pub const Keys = engma.lib.input;
     pub const Audio = engma.lib.audio;
 };
@@ -23,7 +24,7 @@ export fn frame() void {
 }
 
 export fn cleanup() void {
-    engine.deinit(gpa.allocator());
+    engine.deinit();
     _ = gpa.deinit();
     sokol.imgui.shutdown();
     sokol.gfx.shutdown();

@@ -23,6 +23,9 @@ pub const shader = struct {
 
 pub fn Engine(comptime Config: type) type {
     return struct {
+        const Self = @This();
+
+        allocator: std.mem.Allocator,
         world: Config.World,
         gfx: Config.Gfx,
         body: Config.Body,
@@ -30,43 +33,53 @@ pub fn Engine(comptime Config: type) type {
         audio: Config.Audio,
         dt: f32,
 
-        pub fn init(allocator: std.mem.Allocator) @This() {
-            return .{
-                .world = Config.World.init(allocator),
-                .gfx = Config.Gfx.init(allocator),
-                .body = Config.Body.init(allocator),
-                .keys = Config.Keys.init(allocator),
-                .audio = Config.Audio.init(allocator),
+        pub fn init(allocator: std.mem.Allocator) Self {
+            var engine = Self{
+                .allocator = allocator,
+                .world = undefined,
+                .gfx = undefined,
+                .body = undefined,
+                .keys = undefined,
+                .audio = undefined,
                 .dt = 0.016,
             };
+
+            // Initialize all modules with access to the entire engine state
+            engine.world = Config.World.init(&engine);
+            engine.gfx = Config.Gfx.init(&engine);
+            engine.body = Config.Body.init(&engine);
+            engine.keys = Config.Keys.init(&engine);
+            engine.audio = Config.Audio.init(&engine);
+
+            return engine;
         }
 
-        pub fn tick(self: *@This()) void {
-            self.dt = self.gfx.getDeltaTime();
-            self.keys.tick(self.dt);
-            self.world.tick(self.dt);
-            self.audio.tick(self.dt);
-            self.body.tick(self.dt);
-            self.body.handleMovement(&self.keys, &self.world, &self.audio, self.dt);
+        pub fn tick(self: *Self) void {
+            self.dt = self.gfx.getDeltaTime(self);
+            self.keys.tick(self);
+            self.world.tick(self);
+            self.audio.tick(self);
+            self.body.tick(self);
+            self.body.handleMovement(self);
         }
 
-        pub fn draw(self: *@This()) void {
-            self.gfx.draw(&self.world, self.body.view());
+        pub fn draw(self: *Self) void {
+            self.gfx.draw(self);
         }
 
-        pub fn event(self: *@This(), e: anytype) void {
-            self.keys.event(e);
+        pub fn event(self: *Self, e: anytype) void {
+            self.keys.event(self, e);
             if (e.type == .MOUSE_MOVE and self.keys.locked) {
-                self.body.event(e);
+                self.body.event(self, e);
             }
         }
 
-        pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
-            self.world.deinit(allocator);
-            self.audio.deinit(allocator);
-            self.gfx.deinit(allocator);
-            self.body.deinit(allocator);
-            self.keys.deinit(allocator);
+        pub fn deinit(self: *Self) void {
+            self.world.deinit(self);
+            self.audio.deinit(self);
+            self.gfx.deinit(self);
+            self.body.deinit(self);
+            self.keys.deinit(self);
         }
     };
 }

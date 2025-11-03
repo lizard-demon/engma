@@ -7,7 +7,7 @@ var land_time: f32 = 0;
 var land_phase: f32 = 0;
 
 pub const Audio = struct {
-    pub fn init(_: std.mem.Allocator) Audio {
+    pub fn init(_: anytype) Audio {
         sokol.audio.setup(.{
             .sample_rate = 44100,
             .num_channels = 2,
@@ -17,11 +17,11 @@ pub const Audio = struct {
         return .{};
     }
 
-    pub fn deinit(_: *Audio, _: std.mem.Allocator) void {
+    pub fn deinit(_: *Audio, _: anytype) void {
         if (sokol.audio.isvalid()) sokol.audio.shutdown();
     }
 
-    pub fn tick(_: *Audio, _: f32) void {}
+    pub fn tick(_: *Audio, _: anytype) void {}
 
     pub fn jump(_: *Audio) void {
         jump_time = 0.15;

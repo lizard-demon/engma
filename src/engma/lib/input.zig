@@ -5,14 +5,14 @@ pub const Keys = struct {
     bits: packed struct { w: bool = false, a: bool = false, s: bool = false, d: bool = false, space: bool = false, ctrl: bool = false },
     locked: bool = false,
 
-    pub fn init(_: std.mem.Allocator) Keys {
+    pub fn init(_: anytype) Keys {
         return .{ .bits = .{}, .locked = false };
     }
 
-    pub fn deinit(_: *Keys, _: std.mem.Allocator) void {}
-    pub fn tick(_: *Keys, _: f32) void {}
+    pub fn deinit(_: *Keys, _: anytype) void {}
+    pub fn tick(_: *Keys, _: anytype) void {}
 
-    pub fn event(self: *Keys, e: sokol.app.Event) void {
+    pub fn event(self: *Keys, _: anytype, e: sokol.app.Event) void {
         const down = e.type == .KEY_DOWN;
         switch (e.type) {
             .KEY_DOWN, .KEY_UP => switch (e.key_code) {

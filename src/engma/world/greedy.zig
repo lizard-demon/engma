@@ -8,9 +8,9 @@ const CHUNKS_PER_LAYER = (SIZE * SIZE + BITS_PER_U64 - 1) / BITS_PER_U64;
 pub const World = struct {
     data: [SIZE][CHUNKS_PER_LAYER]u64,
 
-    pub fn init(allocator: std.mem.Allocator) World {
+    pub fn init(engine: anytype) World {
         var w = World{ .data = [_][CHUNKS_PER_LAYER]u64{[_]u64{0} ** CHUNKS_PER_LAYER} ** SIZE };
-        w.load(allocator, "map.dat") catch {
+        w.load(engine.allocator, "map.dat") catch {
             for (0..SIZE) |x| for (0..SIZE) |y| for (0..SIZE) |z| {
                 const is_wall = x == 0 or x == SIZE - 1 or z == 0 or z == SIZE - 1;
                 const is_floor = y == 0;
@@ -25,11 +25,11 @@ pub const World = struct {
         return w;
     }
 
-    pub fn deinit(self: *const World, allocator: std.mem.Allocator) void {
-        self.save(allocator, "map.dat") catch {};
+    pub fn deinit(self: *const World, engine: anytype) void {
+        self.save(engine.allocator, "map.dat") catch {};
     }
 
-    pub fn tick(_: *World, _: f32) void {}
+    pub fn tick(_: *World, _: anytype) void {}
 
     inline fn getBit(self: *const World, x: u32, y: u32, z: u32) bool {
         const idx = y * SIZE + z;
