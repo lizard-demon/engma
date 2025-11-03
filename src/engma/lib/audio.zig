@@ -17,13 +17,13 @@ pub const Audio = struct {
         return .{};
     }
 
-    pub fn deinit(_: *Audio, _: std.mem.Allocator, _: anytype) void {
+    pub fn deinit(_: *Audio, _: anytype) void {
         if (sokol.audio.isvalid()) sokol.audio.shutdown();
     }
 
-    pub fn tick(_: *Audio, _: std.mem.Allocator, _: anytype) void {}
-    pub fn draw(_: *Audio, _: std.mem.Allocator, _: anytype) void {}
-    pub fn event(_: *Audio, _: std.mem.Allocator, _: anytype, _: anytype) void {}
+    pub fn tick(_: *Audio, _: anytype) void {}
+    pub fn draw(_: *Audio, _: anytype) void {}
+    pub fn event(_: *Audio, _: anytype, _: anytype) void {}
 
     pub fn jump(_: *Audio) void {
         jump_time = 0.15;

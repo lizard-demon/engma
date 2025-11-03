@@ -77,35 +77,35 @@ pub fn Engine(comptime config: anytype) type {
             inline for (fields) |field| {
                 const module = &@field(self.state, field.name);
                 if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
-                    self.dt = module.getDeltaTime(self.allocator, self);
+                    self.dt = module.getDeltaTime(self);
                     break;
                 }
             }
 
             // Call tick on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).tick(self.allocator, self);
+                @field(self.state, field.name).tick(self);
             }
         }
 
         pub fn draw(self: *Self) void {
             // Call draw on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).draw(self.allocator, self);
+                @field(self.state, field.name).draw(self);
             }
         }
 
         pub fn event(self: *Self, e: anytype) void {
             // Call event on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).event(self.allocator, self, e);
+                @field(self.state, field.name).event(self, e);
             }
         }
 
         pub fn deinit(self: *Self) void {
             // Call deinit on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).deinit(self.allocator, self);
+                @field(self.state, field.name).deinit(self);
             }
         }
     };

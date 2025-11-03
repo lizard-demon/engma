@@ -25,13 +25,13 @@ pub const World = struct {
         return w;
     }
 
-    pub fn deinit(self: *const World, allocator: std.mem.Allocator, _: anytype) void {
-        self.save(allocator, "map.dat") catch {};
+    pub fn deinit(self: *const World, config: anytype) void {
+        self.save(config.allocator, "map.dat") catch {};
     }
 
-    pub fn tick(_: *World, _: std.mem.Allocator, _: anytype) void {}
-    pub fn draw(_: *World, _: std.mem.Allocator, _: anytype) void {}
-    pub fn event(_: *World, _: std.mem.Allocator, _: anytype, _: anytype) void {}
+    pub fn tick(_: *World, _: anytype) void {}
+    pub fn draw(_: *World, _: anytype) void {}
+    pub fn event(_: *World, _: anytype, _: anytype) void {}
 
     inline fn getBit(self: *const World, x: u32, y: u32, z: u32) bool {
         const idx = y * SIZE + z;

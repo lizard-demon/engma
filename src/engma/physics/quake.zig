@@ -34,16 +34,16 @@ pub const Player = struct {
         };
     }
 
-    pub fn deinit(_: *Player, _: std.mem.Allocator, _: anytype) void {}
+    pub fn deinit(_: *Player, _: anytype) void {}
 
-    pub fn tick(self: *Player, _: std.mem.Allocator, config: anytype) void {
+    pub fn tick(self: *Player, config: anytype) void {
         self.prev_ground = self.ground;
         self.handleMovement(config);
     }
 
-    pub fn draw(_: *Player, _: std.mem.Allocator, _: anytype) void {}
+    pub fn draw(_: *Player, _: anytype) void {}
 
-    pub fn event(self: *Player, _: std.mem.Allocator, _: anytype, e: anytype) void {
+    pub fn event(self: *Player, _: anytype, e: anytype) void {
         if (e.type == .MOUSE_MOVE) {
             const sensitivity = 0.008;
             self.yaw += e.mouse_dx * sensitivity;

@@ -13,9 +13,9 @@ pub const Debug = struct {
         };
     }
 
-    pub fn deinit(_: *Debug, _: std.mem.Allocator, _: anytype) void {}
+    pub fn deinit(_: *Debug, _: anytype) void {}
 
-    pub fn tick(self: *Debug, _: std.mem.Allocator, config: anytype) void {
+    pub fn tick(self: *Debug, config: anytype) void {
         self.frame_count += 1;
 
         // Calculate FPS every second
@@ -30,6 +30,6 @@ pub const Debug = struct {
         }
     }
 
-    pub fn draw(_: *Debug, _: std.mem.Allocator, _: anytype) void {}
-    pub fn event(_: *Debug, _: std.mem.Allocator, _: anytype, _: anytype) void {}
+    pub fn draw(_: *Debug, _: anytype) void {}
+    pub fn event(_: *Debug, _: anytype, _: anytype) void {}
 };

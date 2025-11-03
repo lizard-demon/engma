@@ -9,11 +9,11 @@ pub const Keys = struct {
         return .{ .bits = .{}, .locked = false };
     }
 
-    pub fn deinit(_: *Keys, _: std.mem.Allocator, _: anytype) void {}
-    pub fn tick(_: *Keys, _: std.mem.Allocator, _: anytype) void {}
-    pub fn draw(_: *Keys, _: std.mem.Allocator, _: anytype) void {}
+    pub fn deinit(_: *Keys, _: anytype) void {}
+    pub fn tick(_: *Keys, _: anytype) void {}
+    pub fn draw(_: *Keys, _: anytype) void {}
 
-    pub fn event(self: *Keys, _: std.mem.Allocator, _: anytype, e: sokol.app.Event) void {
+    pub fn event(self: *Keys, _: anytype, e: sokol.app.Event) void {
         const down = e.type == .KEY_DOWN;
         switch (e.type) {
             .KEY_DOWN, .KEY_UP => switch (e.key_code) {

@@ -30,7 +30,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             };
         }
 
-        pub fn draw(self: *@This(), _: std.mem.Allocator, config: anytype) void {
+        pub fn draw(self: *@This(), config: anytype) void {
             if (self.count == 0) {
                 self.cleanup();
                 var verts: [32768]math.Vertex = undefined;
@@ -85,7 +85,7 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.commit();
         }
 
-        pub fn getDeltaTime(_: *@This(), _: std.mem.Allocator, _: anytype) f32 {
+        pub fn getDeltaTime(_: *@This(), _: anytype) f32 {
             return @floatCast(sapp.frameDuration());
         }
 
@@ -99,11 +99,11 @@ pub fn Gfx(comptime ShaderType: type) type {
             }
         }
 
-        pub fn deinit(self: *@This(), _: std.mem.Allocator, _: anytype) void {
+        pub fn deinit(self: *@This(), _: anytype) void {
             self.cleanup();
         }
 
-        pub fn tick(_: *@This(), _: std.mem.Allocator, _: anytype) void {}
-        pub fn event(_: *@This(), _: std.mem.Allocator, _: anytype, _: anytype) void {}
+        pub fn tick(_: *@This(), _: anytype) void {}
+        pub fn event(_: *@This(), _: anytype, _: anytype) void {}
     };
 }
