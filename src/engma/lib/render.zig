@@ -85,10 +85,6 @@ pub fn Gfx(comptime ShaderType: type) type {
             sg.commit();
         }
 
-        pub fn getDeltaTime(_: *@This(), _: anytype) f32 {
-            return @floatCast(sapp.frameDuration());
-        }
-
         fn cleanup(self: *@This()) void {
             if (self.count > 0) {
                 if (self.bind.vertex_buffers[0].id != 0) sg.destroyBuffer(self.bind.vertex_buffers[0]);

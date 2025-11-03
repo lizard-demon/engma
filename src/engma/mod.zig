@@ -49,13 +49,7 @@ pub fn Engine(comptime StateType: type) type {
         }
 
         pub fn tick(self: *Self) void {
-            inline for (systems) |field| {
-                const module = &@field(self.state.systems, field.name);
-                if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
-                    self.state.dt = module.getDeltaTime(self.state);
-                    break;
-                }
-            }
+            self.state.dt = @floatCast(@import("sokol").app.frameDuration());
 
             inline for (systems) |field| {
                 @field(self.state.systems, field.name).tick(self.state);
