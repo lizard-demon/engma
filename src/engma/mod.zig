@@ -26,10 +26,30 @@ pub fn Engine(comptime config: anytype) type {
     const ConfigType = @TypeOf(config);
     const fields = @typeInfo(ConfigType).@"struct".fields;
 
-    // Create a state type that holds instances instead of types
+    // Create a state type that holds instances plus allocator and dt
     const StateType = blk: {
-        var state_fields: [fields.len]std.builtin.Type.StructField = undefined;
-        for (fields, 0..) |field, i| {
+        var state_fields: [fields.len + 2]std.builtin.Type.StructField = undefined;
+
+        // Add allocator field
+        state_fields[0] = .{
+            .name = "allocator",
+            .type = std.mem.Allocator,
+            .default_value_ptr = null,
+            .is_comptime = false,
+            .alignment = @alignOf(std.mem.Allocator),
+        };
+
+        // Add dt field
+        state_fields[1] = .{
+            .name = "dt",
+            .type = f32,
+            .default_value_ptr = null,
+            .is_comptime = false,
+            .alignment = @alignOf(f32),
+        };
+
+        // Add module fields
+        for (fields, 2..) |field, i| {
             const ModuleType = @field(config, field.name);
             state_fields[i] = .{
                 .name = field.name,
@@ -42,7 +62,7 @@ pub fn Engine(comptime config: anytype) type {
         break :blk @Type(.{
             .@"struct" = .{
                 .layout = .auto,
-                .fields = state_fields[0..fields.len],
+                .fields = state_fields[0 .. fields.len + 2],
                 .decls = &.{},
                 .is_tuple = false,
             },
@@ -63,6 +83,10 @@ pub fn Engine(comptime config: anytype) type {
                 .state = undefined,
             };
 
+            // Initialize state fields
+            engine.state.allocator = allocator;
+            engine.state.dt = 0.016;
+
             // Initialize all modules with just allocator
             inline for (fields) |field| {
                 const ModuleType = @field(config, field.name);
@@ -73,40 +97,73 @@ pub fn Engine(comptime config: anytype) type {
         }
 
         pub fn tick(self: *Self) void {
+            // Create a config instance with the current state
+            var config_instance = self.state;
+            config_instance.allocator = self.allocator;
+            config_instance.dt = self.dt;
+
             // Update delta time from graphics module if available
             inline for (fields) |field| {
-                const module = &@field(self.state, field.name);
+                const module = &@field(config_instance, field.name);
                 if (@hasDecl(@TypeOf(module.*), "getDeltaTime")) {
-                    self.dt = module.getDeltaTime(self);
+                    self.dt = module.getDeltaTime(config_instance);
+                    config_instance.dt = self.dt;
                     break;
                 }
             }
 
             // Call tick on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).tick(self);
+                @field(config_instance, field.name).tick(config_instance);
             }
+
+            // Copy back the modified state
+            self.state = config_instance;
         }
 
         pub fn draw(self: *Self) void {
+            // Create a config instance with the current state
+            var config_instance = self.state;
+            config_instance.allocator = self.allocator;
+            config_instance.dt = self.dt;
+
             // Call draw on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).draw(self);
+                @field(config_instance, field.name).draw(config_instance);
             }
+
+            // Copy back the modified state
+            self.state = config_instance;
         }
 
         pub fn event(self: *Self, e: anytype) void {
+            // Create a config instance with the current state
+            var config_instance = self.state;
+            config_instance.allocator = self.allocator;
+            config_instance.dt = self.dt;
+
             // Call event on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).event(self, e);
+                @field(config_instance, field.name).event(config_instance, e);
             }
+
+            // Copy back the modified state
+            self.state = config_instance;
         }
 
         pub fn deinit(self: *Self) void {
+            // Create a config instance with the current state
+            var config_instance = self.state;
+            config_instance.allocator = self.allocator;
+            config_instance.dt = self.dt;
+
             // Call deinit on all modules generically
             inline for (fields) |field| {
-                @field(self.state, field.name).deinit(self);
+                @field(config_instance, field.name).deinit(config_instance);
             }
+
+            // Copy back the modified state
+            self.state = config_instance;
         }
     };
 }

@@ -25,12 +25,12 @@ pub const Audio = struct {
     pub fn draw(_: *Audio, _: anytype) void {}
     pub fn event(_: *Audio, _: anytype, _: anytype) void {}
 
-    pub fn jump(_: *Audio) void {
+    pub fn jump(_: Audio) void {
         jump_time = 0.15;
         jump_phase = 0;
     }
 
-    pub fn land(_: *Audio) void {
+    pub fn land(_: Audio) void {
         land_time = 0.08;
         land_phase = 0;
     }

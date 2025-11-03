@@ -26,7 +26,7 @@ pub const Debug = struct {
             self.last_fps_time = current_time;
 
             // Print debug info
-            std.debug.print("FPS: {d:.1} | Player pos: ({d:.2}, {d:.2}, {d:.2}) | DT: {d:.3}\n", .{ self.fps, config.state.Body.pos.v[0], config.state.Body.pos.v[1], config.state.Body.pos.v[2], config.dt });
+            std.debug.print("FPS: {d:.1} | Player pos: ({d:.2}, {d:.2}, {d:.2}) | DT: {d:.3}\n", .{ self.fps, config.Body.pos.v[0], config.Body.pos.v[1], config.Body.pos.v[2], config.dt });
         }
     }
 

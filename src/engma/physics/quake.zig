@@ -54,8 +54,8 @@ pub const Player = struct {
     pub fn handleMovement(self: *Player, config: anytype) void {
         // Movement input
         var dir = Vec3.zero();
-        const fw: f32 = if (config.state.Keys.forward()) 1 else if (config.state.Keys.back()) -1 else 0;
-        const st: f32 = if (config.state.Keys.right()) 1 else if (config.state.Keys.left()) -1 else 0;
+        const fw: f32 = if (config.Keys.forward()) 1 else if (config.Keys.back()) -1 else 0;
+        const st: f32 = if (config.Keys.right()) 1 else if (config.Keys.left()) -1 else 0;
 
         if (st != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@cos(self.yaw), 0, @sin(self.yaw)), st));
         if (fw != 0) dir = Vec3.add(dir, Vec3.scale(Vec3.new(@sin(self.yaw), 0, -@cos(self.yaw)), fw));
@@ -63,7 +63,7 @@ pub const Player = struct {
         Update.movement(self, dir, config.dt);
 
         // Crouch handling
-        const want_crouch = config.state.Keys.crouch();
+        const want_crouch = config.Keys.crouch();
         if (self.crouch and !want_crouch) {
             const height_diff = (cfg.size.stand - cfg.size.crouch) / 2.0;
             const test_pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
@@ -72,7 +72,7 @@ pub const Player = struct {
                 .max = Vec3.new(cfg.size.width, cfg.size.stand / 2.0, cfg.size.width),
             };
 
-            if (!checkStatic(&config.state.World, standing_box.at(test_pos))) {
+            if (!checkStatic(&config.World, standing_box.at(test_pos))) {
                 self.pos = Vec3.new(self.pos.v[0], self.pos.v[1] + height_diff, self.pos.v[2]);
                 self.crouch = false;
             }
@@ -81,13 +81,13 @@ pub const Player = struct {
         }
 
         // Jump
-        if (config.state.Keys.jump() and self.ground) {
+        if (config.Keys.jump() and self.ground) {
             self.vel = Vec3.new(self.vel.v[0], cfg.jump_power, self.vel.v[2]);
             self.ground = false;
-            config.state.Audio.jump();
+            config.Audio.jump();
         }
 
-        Update.physics(self, &config.state.World, &config.state.Audio, config.dt);
+        Update.physics(self, &config.World, &config.Audio, config.dt);
     }
 
     const Update = struct {
@@ -146,7 +146,7 @@ pub const Player = struct {
         }
     };
 
-    pub fn view(self: *Player) Mat4 {
+    pub fn view(self: Player) Mat4 {
         const cy, const sy = .{ @cos(self.yaw), @sin(self.yaw) };
         const cp, const sp = .{ @cos(self.pitch), @sin(self.pitch) };
         const x, const y, const z = .{ self.pos.v[0], self.pos.v[1], self.pos.v[2] };
