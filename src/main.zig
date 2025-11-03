@@ -24,25 +24,18 @@ const Engine = struct {
 var engine: Engine = undefined;
 
 export fn init() void {
-    // Initialize state fields
     engine.allocator = gpa.allocator();
     engine.dt = 0.016;
-
-    // Initialize all systems
     engine.call("init");
 }
 
 export fn frame() void {
-    // Update delta time
     engine.dt = @floatCast(sokol.app.frameDuration());
-
-    // Tick and draw all systems
     engine.call("tick");
     engine.call("draw");
 }
 
 export fn cleanup() void {
-    // Deinitialize all systems
     engine.call("deinit");
 
     _ = gpa.deinit();
@@ -51,7 +44,6 @@ export fn cleanup() void {
 }
 
 export fn event(e: [*c]const sokol.app.Event) void {
-    // Handle events for all systems
     inline for (@typeInfo(@TypeOf(engine.systems)).@"struct".fields) |field| {
         @call(.auto, @field(@TypeOf(@field(engine.systems, field.name)), "event"), .{&@field(engine.systems, field.name)} ++ .{ engine, e.* });
     }
