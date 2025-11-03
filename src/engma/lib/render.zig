@@ -97,6 +97,8 @@ pub fn Gfx(comptime ShaderType: type) type {
 
         pub fn deinit(self: *@This(), _: anytype) void {
             self.cleanup();
+            simgui.shutdown();
+            sg.shutdown();
         }
 
         pub fn tick(_: *@This(), _: anytype) void {}

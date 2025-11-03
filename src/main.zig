@@ -39,8 +39,6 @@ export fn cleanup() void {
     engine.call("deinit");
 
     _ = gpa.deinit();
-    sokol.imgui.shutdown();
-    sokol.gfx.shutdown();
 }
 
 export fn event(e: [*c]const sokol.app.Event) void {
