@@ -7,6 +7,7 @@ pub fn build(b: *std.Build) !void {
 
     const dep_sokol = b.dependency("sokol", .{ .target = target, .optimize = optimize, .with_sokol_imgui = true });
     const dep_cimgui = b.dependency("cimgui", .{ .target = target, .optimize = optimize });
+    const dep_network = b.dependency("network", .{ .target = target, .optimize = optimize });
     const shdc = b.dependency("shdc", .{});
 
     dep_sokol.artifact("sokol_clib").addIncludePath(dep_cimgui.path(@import("cimgui").getConfig(false).include_dir));
@@ -25,6 +26,7 @@ pub fn build(b: *std.Build) !void {
         .imports = &.{
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = "cimgui", .module = dep_cimgui.module("cimgui") },
+            .{ .name = "network", .module = dep_network.module("network") },
         },
     });
 
@@ -35,6 +37,7 @@ pub fn build(b: *std.Build) !void {
         .imports = &.{
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = "cimgui", .module = dep_cimgui.module("cimgui") },
+            .{ .name = "network", .module = dep_network.module("network") },
             .{ .name = "engma", .module = engma_module },
         },
     });
